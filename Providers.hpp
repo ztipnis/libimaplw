@@ -2,7 +2,7 @@
 #import <map>
 #import <sstream>
 #import <tls.h>
-#import "../SocketPool/SocketPool.hpp"
+#import <SocketPool.hpp>
 #import "IMAPClientState.hpp"
 #import "Helpers.hpp"
 #import "config.hpp"
