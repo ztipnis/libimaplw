@@ -33,5 +33,9 @@ inline void sendMsg(int fd, const std::string &data){
 inline void sendMsg(struct tls* fd, const std::string &data){
 	tls_write(fd, &data[0], data.length());
 }
+struct mailbox {
+	std::string path;
+	std::vector<std::string> flags;
+};
 
 #endif

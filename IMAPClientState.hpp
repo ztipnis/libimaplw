@@ -15,6 +15,7 @@ namespace IMAPProvider{
 		std::string user;
 		bool selected;
 		std::string mbox;
+		
 	public:
 		struct tls *tls = NULL;
 		IMAPClientState(){
@@ -54,16 +55,25 @@ namespace IMAPProvider{
 		const std::string get_uuid() const{
 			return uuid;
 		}
+		void SASL(std::string mechanism){
+			AuthenticationProvider& provider = AuthenticationProvider::getInst<A>();
+			user = provider.SASL(tls, mechanism);
+			authenticated = true;
+		}
 		bool authenticate(const std::string& username, const std::string& password){
 			AuthenticationProvider& provider = AuthenticationProvider::getInst<A>();
 			if(provider.lookup(username) == false){
 				return false;
 			}
 			if(provider.authenticate(username, password)){
+				authenticated = true;
 				user = username;
 				return true;
 			}
 			return false;
+		}
+		void select(std::string mailbox){
+			mbox = mailbox;
 		}
 	};
 }
