@@ -18,10 +18,6 @@ public:
 	virtual long uidvalid(std::string mailbox) = 0;
 	virtual std::string accessType(std::string mailbox) = 0;
 	virtual bool createMbox(std::string) = 0;
-	template <class T> static DataProvider& getInst(){
-		static T m_Inst;
-		return m_Inst;
-	}
 private:
 	DataProvider(DataProvider const&) = delete;
 	DataProvider& operator=(DataProvider const&) = delete;

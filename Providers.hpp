@@ -24,13 +24,13 @@ namespace IMAPProvider{
 		void LOGOUT(int rfd, std::string tag) const;
 		//UNAUTHENTICATED
 		void STARTTLS(int rfd, std::string tag) const;
-		void AUTHENTICATE(int rfd, std::string tag) const;
-		void LOGIN(int rfd, std::string tag) const;
+		void AUTHENTICATE(int rfd, std::string tag, std::string) const;
+		void LOGIN(int rfd, std::string tag, std::string, std::string) const;
 		 //AUTENTICATED
-		void SELECT(int rfd, std::string tag) const;
-		void EXAMINE(int rfd, std::string tag) const;
-		void CREATE(int rfd, std::string tag) const;
-		void DELETE(int rfd, std::string tag) const;
+		void SELECT(int rfd, std::string tag, std::string) const;
+		void EXAMINE(int rfd, std::string tag, std::string) const;
+		void CREATE(int rfd, std::string tag, std::string) const;
+		void DELETE(int rfd, std::string tag, std::string) const;
 		void RENAME(int rfd, std::string tag) const;
 		void SUBSCRIBE(int rfd, std::string tag) const;
 		void UNSUBSCRIBE(int rfd, std::string tag) const;
@@ -312,7 +312,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::EXAMINE(int rfd, std::string tag,
 	OK(rfd, "*", "[PERMANENTFLAGS "+DP.permanentFlags(mailbox)+"]");
 	OK(rfd, "*", "[UIDNEXT "+std::to_string(DP.uidnext(mailbox))+"]");
 	OK(rfd, "*", "[UIDVALIDITY "+std::to_string(DP.uidvalid(mailbox))+"]");
-	OK(rfd, tag, "[READ-ONLY]" + " EXAMINE Success.");
+	OK(rfd, tag, "[READ-ONLY] EXAMINE Success.");
 }
 
 template<class AuthP, class DataP>
@@ -354,35 +354,35 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::RENAME(int rfd, std::string tag, 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::SUBSCRIBE(int rfd, std::string tag, std::string mailbox) const{
 	if(DP.addSub(states[rfd].getUser(), mailbox)){
-		OK(rfd, tag, " Success.")
+		OK(rfd, tag, " Success.");
 	}else{
-		NO(rfd, tag, " Failed.")
+		NO(rfd, tag, " Failed.");
 	}
 }
 
 template<class AuthP, class DataP>
-void IMAPProvider::IMAPProvider<AuthP, DataP>::UNSUBSCRIBE(int rfd, std::string tag) const{
+void IMAPProvider::IMAPProvider<AuthP, DataP>::UNSUBSCRIBE(int rfd, std::string tag, std::string mailbox) const{
 	if(DP.rmSub(states[rfd].getUser(), mailbox)){
-		OK(rfd, tag, " Success.")
+		OK(rfd, tag, " Success.");
 	}else{
-		NO(rfd, tag, " Failed.")
+		NO(rfd, tag, " Failed.");
 	}
 }
 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(int rfd, std::string tag, std::string reference, std::string name) const{
-	char[] ref = new char[reference.length()];
-	strncpy(reference.c_str(), ref, reference.length());
-	char[] mboxs = new char[name.length()];
-	strncpy(name.c_str(), mboxs, mboxs.length());
+	char* ref = new char[reference.length()];
+	strncpy(ref,reference.c_str(), reference.length());
+	char* mboxs = new char[name.length()];
+	strncpy(mboxs,name.c_str(), name.length());
 	std::vector<std::string> mboxPath;
 	if(mboxs[0] != '/'){
 		while(const char* token = strtok_r(ref, "/.", &ref)){
-			mboxPath.append(std::to_string(token));
+			mboxPath.push_back(std::string(token));
 		}
 	}
 	while(const char* token = strtok_r(mboxs, "/.", &mboxs)){
-		mboxPath.append(std::to_string(token));
+		mboxPath.push_back(std::string(token));
 	}
 	std::vector<mailbox> lres;
 	DP.list(mboxPath, lres);
@@ -405,18 +405,18 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(int rfd, std::string tag, st
 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(int rfd, std::string tag, std::string reference, std::string name) const{
-	char[] ref = new char[reference.length()];
-	strncpy(reference.c_str(), ref, reference.length());
-	char[] mboxs = new char[name.length()];
-	strncpy(name.c_str(), mboxs, mboxs.length());
+	char* ref = new char[reference.length()];
+	strncpy(ref,reference.c_str(), reference.length());
+	char* mboxs = new char[name.length()];
+	strncpy(mboxs,name.c_str(), name.length());
 	std::vector<std::string> mboxPath;
 	if(mboxs[0] != '/'){
 		while(const char* token = strtok_r(ref, "/.", &ref)){
-			mboxPath.append(std::to_string(token));
+			mboxPath.push_back(std::string(token));
 		}
 	}
 	while(const char* token = strtok_r(mboxs, "/.", &mboxs)){
-		mboxPath.append(std::to_string(token));
+		mboxPath.push_back(std::string(token));
 	}
 	std::vector<mailbox> lres;
 	DP.lsub(mboxPath, lres);
@@ -446,14 +446,14 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STATUS(int rfd, std::string tag, 
 		resp << ")";
 		OK(rfd, tag, "STATUS Success.");
 	}else{
-		NO(rfd, tag, "STATUS Failed. No Status for that name.")
+		NO(rfd, tag, "STATUS Failed. No Status for that name.");
 	}
 }
 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND(int rfd, std::string tag, std::string mailbox, std::string flags, std::string datetime) const{
 	if(!DP.mailboxExists(mailbox)){
-		NO(rfd, tag, "[TRYCREATE] APPEND Failed.")
+		NO(rfd, tag, "[TRYCREATE] APPEND Failed.");
 	}else{
 
 	}
