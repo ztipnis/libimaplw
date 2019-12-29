@@ -1,6 +1,8 @@
 #import <uuid/uuid.h>
 #import <algorithm>
 #import <tls.h>
+#import <vector>
+#import <sys/socket.h>
 
 #ifndef __IMAP_HELPERS__
 #define __IMAP_HELPERS__

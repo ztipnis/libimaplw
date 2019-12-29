@@ -7,7 +7,7 @@ public:
 	virtual bool authenticate(std::string username, std::string password) = 0;
 	virtual std::string SASL(struct tls* fd, std::string mechanism) = 0;
 	const std::string capabilityString;
-	template <class T> static AuthenticationProvider& getInst(){
+	template <typename T> static AuthenticationProvider& getInst(){
 		static T m_Inst;
 		return m_Inst;
 	}

@@ -2,6 +2,8 @@
 #import <map>
 #import <sstream>
 #import <tls.h>
+#include <utility>
+#include <type_traits>
 #import <SocketPool.hpp>
 #import "IMAPClientState.hpp"
 #import "Helpers.hpp"
@@ -31,13 +33,13 @@ namespace IMAPProvider{
 		void EXAMINE(int rfd, std::string tag, std::string) const;
 		void CREATE(int rfd, std::string tag, std::string) const;
 		void DELETE(int rfd, std::string tag, std::string) const;
-		void RENAME(int rfd, std::string tag) const;
-		void SUBSCRIBE(int rfd, std::string tag) const;
-		void UNSUBSCRIBE(int rfd, std::string tag) const;
-		void LIST(int rfd, std::string tag) const;
-		void LSUB(int rfd, std::string tag) const;
-		void STATUS(int rfd, std::string tag) const;
-		void APPEND(int rfd, std::string tag) const;
+		void RENAME(int rfd, std::string tag, std::string mailbox, std::string name) const;
+		void SUBSCRIBE(int rfd, std::string tag, std::string mailbox) const;
+		void UNSUBSCRIBE(int rfd, std::string tag, std::string mailbox) const;
+		void LIST(int rfd, std::string tag, std::string reference, std::string name) const;
+		void LSUB(int rfd, std::string tag, std::string reference, std::string name) const;
+		void STATUS(int rfd, std::string tag, std::string mailbox, std::string datareq) const;
+		void APPEND(int rfd, std::string tag, std::string mailbox, std::string flags, std::string msgsize) const;
 		//SELECTED
 		void CHECK(int rfd, std::string tag) const;
 		void CLOSE(int rfd, std::string tag) const;
@@ -235,7 +237,7 @@ template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::CAPABILITY(int rfd, std::string tag) const{
 	if(config.starttls && !config.secure && (states[rfd].state() == UNENC)){
 		respond(rfd, "*", "CAPABILITY", "IMAP4rev1 STARTTLS LOGINDISABLED");
-	}else if(!states[rfd].state() == UNAUTH){
+	}else if(!(states[rfd].state() == UNAUTH)){
 		respond(rfd, "*", "CAPABILITY", "IMAP4rev1 " + AP.capabilityString);
 	}else{
 		respond(rfd, "*", "CAPABILITY", "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE");
@@ -293,31 +295,31 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LOGIN(int rfd, std::string tag, s
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::SELECT(int rfd, std::string tag, std::string mailbox) const{
 	states[rfd].select(mailbox);
-	respond(rfd, "*", "FLAGS", DP.flags(mailbox));
-	respond(rfd, "*", std::to_string(DP.exists(mailbox)), "EXISTS");
-	respond(rfd, "*", std::to_string(DP.recent(mailbox)), "RECENT");
-	OK(rfd, "*", "[UNSEEN "+std::to_string(DP.unseen(mailbox))+"]");
-	OK(rfd, "*", "[PERMANENTFLAGS "+DP.permanentFlags(mailbox)+"]");
-	OK(rfd, "*", "[UIDNEXT "+std::to_string(DP.uidnext(mailbox))+"]");
-	OK(rfd, "*", "[UIDVALIDITY "+std::to_string(DP.uidvalid(mailbox))+"]");
-	OK(rfd, tag, DP.accessType(mailbox) + " SELECT Success.");
+	respond(rfd, "*", "FLAGS", DP.flags(states[rfd].getUser(), mailbox));
+	respond(rfd, "*", std::to_string(DP.exists(states[rfd].getUser(), mailbox)), "EXISTS");
+	respond(rfd, "*", std::to_string(DP.recent(states[rfd].getUser(), mailbox)), "RECENT");
+	OK(rfd, "*", "[UNSEEN "+std::to_string(DP.unseen(states[rfd].getUser(), mailbox))+"]");
+	OK(rfd, "*", "[PERMANENTFLAGS "+DP.permanentFlags(states[rfd].getUser(), mailbox)+"]");
+	OK(rfd, "*", "[UIDNEXT "+std::to_string(DP.uidnext(states[rfd].getUser(), mailbox))+"]");
+	OK(rfd, "*", "[UIDVALIDITY "+std::to_string(DP.uidvalid(states[rfd].getUser(), mailbox))+"]");
+	OK(rfd, tag, DP.accessType(states[rfd].getUser(), mailbox) + " SELECT Success.");
 }
 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::EXAMINE(int rfd, std::string tag, std::string mailbox) const{
-	respond(rfd, "*", "FLAGS", DP.flags(mailbox));
-	respond(rfd, "*", std::to_string(DP.exists(mailbox)), "EXISTS");
-	respond(rfd, "*", std::to_string(DP.recent(mailbox)), "RECENT");
-	OK(rfd, "*", "[UNSEEN "+std::to_string(DP.unseen(mailbox))+"]");
-	OK(rfd, "*", "[PERMANENTFLAGS "+DP.permanentFlags(mailbox)+"]");
-	OK(rfd, "*", "[UIDNEXT "+std::to_string(DP.uidnext(mailbox))+"]");
-	OK(rfd, "*", "[UIDVALIDITY "+std::to_string(DP.uidvalid(mailbox))+"]");
+	respond(rfd, "*", "FLAGS", DP.flags(states[rfd].getUser(), mailbox));
+	respond(rfd, "*", std::to_string(DP.exists(states[rfd].getUser(), mailbox)), "EXISTS");
+	respond(rfd, "*", std::to_string(DP.recent(states[rfd].getUser(), mailbox)), "RECENT");
+	OK(rfd, "*", "[UNSEEN "+std::to_string(DP.unseen(states[rfd].getUser(), mailbox))+"]");
+	OK(rfd, "*", "[PERMANENTFLAGS "+DP.permanentFlags(states[rfd].getUser(), mailbox)+"]");
+	OK(rfd, "*", "[UIDNEXT "+std::to_string(DP.uidnext(states[rfd].getUser(), mailbox))+"]");
+	OK(rfd, "*", "[UIDVALIDITY "+std::to_string(DP.uidvalid(states[rfd].getUser(), mailbox))+"]");
 	OK(rfd, tag, "[READ-ONLY] EXAMINE Success.");
 }
 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::CREATE(int rfd, std::string tag, std::string mailbox) const{
-	if(DP.createMbox(mailbox)){
+	if(DP.createMbox(states[rfd].getUser(), mailbox)){
 		OK(rfd, tag, "CREATE Success");
 	}else{
 		NO(rfd, tag, "CREATE failed to create new mailbox");
@@ -326,16 +328,16 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::CREATE(int rfd, std::string tag, 
 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::DELETE(int rfd, std::string tag, std::string mailbox) const{
-	if(DP.isHasSubFolders(mailbox)){
-		if(DP.hasAttrib(mailbox, "\\NoSelect")){
+	if(DP.hasSubFolders(states[rfd].getUser(), mailbox)){
+		if(DP.hasAttrib(states[rfd].getUser(), mailbox, "\\NoSelect")){
 			NO(rfd, tag, "MAILBOX in not deletable");
 		}else{
-			DP.clear(mailbox);
-			DP.addAttrib(mailbox, "\\NoSelect");
+			DP.clear(states[rfd].getUser(), mailbox);
+			DP.addAttrib(states[rfd].getUser(), mailbox, "\\NoSelect");
 			OK(rfd, tag, "DELETE Success.");
 		}
 	}else{
-		if(DP.rmFolder(mailbox))
+		if(DP.rmFolder(states[rfd].getUser(), mailbox))
 			OK(rfd,tag,"DELETE Success.");
 		else
 			NO(rfd, tag, "DELETE Failed.");
@@ -344,7 +346,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::DELETE(int rfd, std::string tag, 
 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::RENAME(int rfd, std::string tag, std::string mailbox, std::string name) const{
-	if(DP.rename(mailbox, name)){
+	if(DP.rename(states[rfd].getUser(), mailbox, name)){
 		OK(rfd, tag, "RENAME Success.");
 	}else{
 		NO(rfd, tag, "RENAME Failed.");
@@ -362,7 +364,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::SUBSCRIBE(int rfd, std::string ta
 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::UNSUBSCRIBE(int rfd, std::string tag, std::string mailbox) const{
-	if(DP.rmSub(states[rfd].getUser(), mailbox)){
+	if(DP.rmSub(states[rfd].getUser(), states[rfd].getUser(), mailbox)){
 		OK(rfd, tag, " Success.");
 	}else{
 		NO(rfd, tag, " Failed.");
@@ -385,7 +387,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(int rfd, std::string tag, st
 		mboxPath.push_back(std::string(token));
 	}
 	std::vector<mailbox> lres;
-	DP.list(mboxPath, lres);
+	DP.list(states[rfd].getUser(), mboxPath, lres);
 	delete[] ref;
 	delete[] mboxs;
 	if(lres.size() > 0){
@@ -419,7 +421,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(int rfd, std::string tag, st
 		mboxPath.push_back(std::string(token));
 	}
 	std::vector<mailbox> lres;
-	DP.lsub(mboxPath, lres);
+	DP.lsub(states[rfd].getUser(), mboxPath, lres);
 	delete[] ref;
 	delete[] mboxs;
 	if(lres.size() > 0){
@@ -439,7 +441,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(int rfd, std::string tag, st
 
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::STATUS(int rfd, std::string tag, std::string mailbox, std::string datareq) const{
-	if(DP.mailboxExists(mailbox)){
+	if(DP.mailboxExists(states[rfd].getUser(), mailbox)){
 		std::stringstream resp;
 		resp << mailbox << " (";
 
@@ -451,11 +453,25 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STATUS(int rfd, std::string tag, 
 }
 
 template<class AuthP, class DataP>
-void IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND(int rfd, std::string tag, std::string mailbox, std::string flags, std::string datetime) const{
-	if(!DP.mailboxExists(mailbox)){
+void IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND(int rfd, std::string tag, std::string mailbox, std::string flags, std::string msgsize) const{
+	if(!DP.mailboxExists(states[rfd].getUser(), mailbox)){
 		NO(rfd, tag, "[TRYCREATE] APPEND Failed.");
 	}else{
-
+		respond(rfd, "+", "", "Go Ahead");
+		int rcvd = 0;
+		int msg_sz;
+		sscanf(msgsize.c_str(), "%*s %u %*s", &msg_sz);
+		std::string data(8193, 0);
+		std::stringstream buffer;
+		for(int total_recv = 0; total_recv < msg_sz; total_recv += rcvd){
+			if(states[rfd].state() != UNENC){
+				rcvd = tls_read(states[rfd].tls, &data[0], 8912);
+			}else{
+				rcvd= recv(rfd, &data[0], 8192, MSG_DONTWAIT);
+			}
+			buffer << data;
+		}
+		DP.append(states[rfd].getUser(), mailbox, buffer.str());
 	}
 }
 
