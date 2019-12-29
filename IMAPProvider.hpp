@@ -461,13 +461,13 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND(int rfd, std::string tag, 
 		int rcvd = 0;
 		int msg_sz;
 		sscanf(msgsize.c_str(), "%*s %u %*s", &msg_sz);
-		std::string data(8193, 0);
+		std::string data(msg_sz + 1, 0);
 		std::stringstream buffer;
 		for(int total_recv = 0; total_recv < msg_sz; total_recv += rcvd){
 			if(states[rfd].state() != UNENC){
-				rcvd = tls_read(states[rfd].tls, &data[0], 8912);
+				rcvd = tls_read(states[rfd].tls, &data[0], msg_sz - total_recv);
 			}else{
-				rcvd= recv(rfd, &data[0], 8192, MSG_DONTWAIT);
+				rcvd= recv(rfd, &data[0], msg_sz - total_recv, MSG_DONTWAIT);
 			}
 			buffer << data;
 		}
