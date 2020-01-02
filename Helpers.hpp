@@ -40,4 +40,16 @@ struct mailbox {
 	std::vector<std::string> flags;
 };
 
+struct selectResp
+{
+	std::string flags;
+	int exists;
+	int recent;
+	int unseen;
+	std::string permanentFlags;
+	long uidnext;
+	long uidvalid;
+	std::string accessType;
+};
+
 #endif

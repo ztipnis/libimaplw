@@ -6,7 +6,7 @@
 
 namespace IMAPProvider{
 	typedef enum { UNENC, UNAUTH, AUTH, SELECTED } IMAPState_t;
-	template <class A>
+	template <typename A>
 	class IMAPClientState {
 	private:
 		std::string uuid;
@@ -15,8 +15,8 @@ namespace IMAPProvider{
 		std::string user;
 		bool selected;
 		std::string mbox;
-		
 	public:
+		bool isSubscribedToChanges = false;
 		struct tls *tls = NULL;
 		IMAPClientState(){
 			encrypted = false;
@@ -55,10 +55,11 @@ namespace IMAPProvider{
 		const std::string get_uuid() const{
 			return uuid;
 		}
-		void SASL(std::string mechanism){
+		bool SASL(std::string mechanism){
 			AuthenticationProvider& provider = AuthenticationProvider::getInst<A>();
 			user = provider.SASL(tls, mechanism);
-			authenticated = true;
+			authenticated = (user == "");
+			return (user == "");
 		}
 		bool authenticate(const std::string& username, const std::string& password){
 			AuthenticationProvider& provider = AuthenticationProvider::getInst<A>();
@@ -74,6 +75,7 @@ namespace IMAPProvider{
 		}
 		void select(std::string mailbox){
 			mbox = mailbox;
+			selected = true;
 		}
 	};
 }
