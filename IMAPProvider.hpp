@@ -7,9 +7,9 @@
 #include <functional>
 #import <SocketPool.hpp>
 #import "WordList.hpp"
-#import "IMAPClientState.hpp"
+#import "ClientStateModel.hpp"
 #import "Helpers.hpp"
-#import "config.hpp"
+#import "ConfigModel.hpp"
 
 #ifndef __IMAP_PROVIDERS__
 #define __IMAP_PROVIDERS__
@@ -18,8 +18,8 @@ namespace IMAPProvider{
 	template <class AuthP, class DataP>
 	class IMAPProvider: public Pollster::Handler{
 	private:
-		const Config &config;
-		static std::map<int, IMAPClientState<AuthP> > states;
+		const ConfigModel &config;
+		static std::map<int, ClientStateModel<AuthP> > states;
 		struct tls *tls = NULL;
 		struct tls_config *t_conf = NULL;
 		//ANY STATE
@@ -73,11 +73,11 @@ namespace IMAPProvider{
 		void parse(int fd, std::string message) const;
 		void tls_setup();
 		void tls_cleanup();
-		AuthenticationProvider& AP = AuthenticationProvider::getInst<AuthP>();
-		DataProvider& DP = DataProvider::getInst<DataP>();
+		AuthenticationModel& AP = AuthenticationModel::getInst<AuthP>();
+		DataModel& DP = DataModel::getInst<DataP>();
 
 	public:
-		IMAPProvider(Config &cfg) : config(cfg){ if(cfg.secure || cfg.starttls) tls_setup(); }
+		IMAPProvider(ConfigModel &cfg) : config(cfg){ if(cfg.secure || cfg.starttls) tls_setup(); }
 		~IMAPProvider(){ tls_cleanup(); }
 		void operator()(int fd) const;
 		void disconnect(int fd, const std::string &reason) const;
@@ -85,7 +85,7 @@ namespace IMAPProvider{
 	};
 }
 template<class AuthP, class DataP>
-std::map<int, typename IMAPProvider::IMAPClientState<AuthP> > IMAPProvider::IMAPProvider<AuthP, DataP>::states;
+std::map<int, typename IMAPProvider::ClientStateModel<AuthP> > IMAPProvider::IMAPProvider<AuthP, DataP>::states;
 template<class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::operator()(int fd) const{
 	std::string data(8193, 0);
@@ -269,26 +269,6 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STARTTLS(int rfd, std::string tag
 	}else{
 		BAD(rfd, tag, "STARTTLS Disabled");
 	}
-}
-
-std::string base64_decode(const std::string &in) {
-
-    std::string out;
-
-    std::vector<int> T(256,-1);
-    for (int i=0; i<64; i++) T["ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[i]] = i; 
-
-    int val=0, valb=-8;
-    for (char c : in) {
-        if (T[c] == -1) break;
-        val = (val<<6) + T[c];
-        valb += 6;
-        if (valb>=0) {
-            out.push_back(char((val>>valb)&0xFF));
-            valb-=8;
-        }
-    }
-    return out;
 }
 
 template<class AuthP, class DataP>

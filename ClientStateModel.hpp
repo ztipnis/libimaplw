@@ -1,5 +1,5 @@
 #import "Helpers.hpp"
-#import "AuthenticationProvider.hpp"
+#import "AuthenticationModel.hpp"
 
 #ifndef __IMAP_CLIENT_STATE__
 #define __IMAP_CLIENT_STATE__
@@ -7,7 +7,7 @@
 namespace IMAPProvider{
 	typedef enum { UNENC, UNAUTH, AUTH, SELECTED } IMAPState_t;
 	template <typename A>
-	class IMAPClientState {
+	class ClientStateModel {
 	private:
 		std::string uuid;
 		bool encrypted;
@@ -18,7 +18,7 @@ namespace IMAPProvider{
 	public:
 		bool isSubscribedToChanges = false;
 		struct tls *tls = NULL;
-		IMAPClientState(){
+		ClientStateModel(){
 			encrypted = false;
 			authenticated = false;
 			user = "";
@@ -56,13 +56,13 @@ namespace IMAPProvider{
 			return uuid;
 		}
 		bool SASL(std::string mechanism){
-			AuthenticationProvider& provider = AuthenticationProvider::getInst<A>();
+			AuthenticationModel& provider = AuthenticationModel::getInst<A>();
 			user = provider.SASL(tls, mechanism);
 			authenticated = (user == "");
 			return (user == "");
 		}
 		bool authenticate(const std::string& username, const std::string& password){
-			AuthenticationProvider& provider = AuthenticationProvider::getInst<A>();
+			AuthenticationModel& provider = AuthenticationModel::getInst<A>();
 			if(provider.lookup(username) == false){
 				return false;
 			}
