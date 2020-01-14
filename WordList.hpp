@@ -11,9 +11,9 @@
  *
  */
 
-#import <sstream>
-#import <string>
-#import <vector>
+#include <sstream>
+#include <string>
+#include <vector>
 
 class WordList {
  private:

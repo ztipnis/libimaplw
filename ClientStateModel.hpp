@@ -11,8 +11,8 @@
  *
  */
 
-#import "AuthenticationModel.hpp"
-#import "Helpers.hpp"
+#include "AuthenticationModel.hpp"
+#include "Helpers.hpp"
 
 #ifndef __IMAP_CLIENT_STATE__
 #define __IMAP_CLIENT_STATE__

@@ -11,12 +11,12 @@
  *
  */
 
-#import <sys/socket.h>
-#import <tls.h>
-#import <uuid/uuid.h>
+#include <sys/socket.h>
+#include <tls.h>
+#include <uuid/uuid.h>
 
-#import <algorithm>
-#import <vector>
+#include <algorithm>
+#include <vector>
 
 #ifndef __IMAP_HELPERS__
 #define __IMAP_HELPERS__
