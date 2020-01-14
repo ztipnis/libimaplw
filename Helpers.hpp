@@ -7,7 +7,7 @@
  *
  * You should have received a copy of the MIT License with
  * this file. If not, please write to "zatipnis@icloud.com"
- * or visit: https://zachrytipnis.com
+ * or visit: https://zacharytipnis.com
  *
  */
 
@@ -63,6 +63,15 @@ struct selectResp {
   long uidnext;
   long uidvalid;
   std::string accessType;
+};
+
+struct searchCriterion{
+  std::vector<std::string> flags;
+  std::vector<std::string> notFlags;
+  std::map<std::string, std::string> fieldContains;
+  std::map<std::string, std::string> fieldNotContains;
+  
+
 };
 
 std::string base64_decode(const std::string &in) {

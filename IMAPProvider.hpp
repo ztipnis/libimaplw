@@ -7,7 +7,7 @@
  *
  * You should have received a copy of the MIT License with
  * this file. If not, please write to "zatipnis@icloud.com"
- * or visit: https://zachrytipnis.com
+ * or visit: https://zacharytipnis.com
  *
  */
 
@@ -234,7 +234,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
       BAD(fd, tag, "Command Not Allowed At This Time.");
     }
   } else if (command == "AUTHENTICATE") {
-    if (states[fd].state() == UNAUTH) {
+    if (states[fd].state() == UNAUTH || states[fd].state() == UNENC) {
       AUTHENTICATE(fd, tag, args.rest(0));
     } else {
       BAD(fd, tag, "Command Not Allowed At This Time.");
@@ -242,7 +242,9 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
   } else if (command == "LOGIN") {
     if (states[fd].state() == UNAUTH) {
       LOGIN(fd, tag, args[0], args.rest(1));
-    } else {
+    } else if(states[fd].state() == UNENC) {
+      BAD(fd, tag, "Sorry PLAINTEXT Authentication is deprecated when unencrypted. Use AUTHENTICATE instead.");
+    }else{
       BAD(fd, tag, "Command Not Allowed At This Time.");
     }
   } else /* AUTHENTICATED */ if (command == "SELECT") {
@@ -381,7 +383,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::CAPABILITY(
     int rfd, std::string tag) const {
   if (config.starttls && !config.secure && (states[rfd].state() == UNENC)) {
     respond(rfd, "*", "CAPABILITY", "IMAP4rev1 UTF8=ONLY STARTTLS LOGINDISABLED");
-  } else if (states[rfd].state() == UNAUTH) {
+  } else if (states[rfd].state() == UNAUTH || states[rfd].state() == UNENC) {
     respond(rfd, "*", "CAPABILITY", "IMAP4rev1 UTF8=ONLY " + AP.capabilityString);
   } else {
     respond(rfd, "*", "CAPABILITY",
@@ -421,7 +423,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STARTTLS(int rfd,
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE(
     int rfd, std::string tag, std::string mechanism) const {
-  if (states[rfd].state() != UNAUTH) {
+  if (states[rfd].state() != UNAUTH || states[rfd].state() == UNENC) {
     BAD(rfd, tag, "Already in Authenticated State");
   }
   std::transform(mechanism.begin(), mechanism.end(), mechanism.begin(),

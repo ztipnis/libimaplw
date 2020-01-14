@@ -7,7 +7,7 @@
  *
  * You should have received a copy of the MIT License with
  * this file. If not, please write to "zatipnis@icloud.com"
- * or visit: https://zachrytipnis.com
+ * or visit: https://zacharytipnis.com
  *
  */
 
@@ -41,7 +41,7 @@ class ClientStateModel {
     uuid = gen_uuid(15);
   }
   const IMAPState_t state() const {
-    if (!encrypted) {
+    if (!encrypted && !authenticated) {
       return UNENC;
     } else if (authenticated) {
       if (selected) {
