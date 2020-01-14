@@ -185,7 +185,10 @@ template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::tls_setup() {
   if(t_conf == NULL){
     const char* err = tls_config_error(t_conf);
-    throw std::runtime_error(err);
+    if(err == NULL)
+      throw std::runtime_error("TLS Out of Memory Exception");
+    else
+      throw std::runtime_error(err);
   }
   tls = tls_server();
   unsigned int protocols = 0;
