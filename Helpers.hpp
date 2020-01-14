@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <map>
 
 #ifndef __IMAP_HELPERS__
 #define __IMAP_HELPERS__
