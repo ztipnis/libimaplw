@@ -35,8 +35,8 @@ class IMAPProvider : public Pollster::Handler {
  private:
   const ConfigModel& config;
   static std::map<int, ClientStateModel<AuthP> > states;
-  struct tls* tls = NULL;
-  struct tls_config* t_conf = NULL;
+  struct tls* tls;
+  struct tls_config* t_conf = tls_config_new();
   // ANY STATE
   void CAPABILITY(int rfd, std::string tag) const;
   void NOOP(int rfd, std::string tag) const {
@@ -183,7 +183,10 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::connect(int fd) const {
 }
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::tls_setup() {
-  t_conf = tls_config_new();
+  if(t_conf == NULL){
+    const char* err = tls_config_error(t_conf);
+    throw std::runtime_error(err);
+  }
   tls = tls_server();
   unsigned int protocols = 0;
   if (tls_config_parse_protocols(&protocols, config.versions) < 0) {
