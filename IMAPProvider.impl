@@ -46,6 +46,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::connect(int fd) const {
   socklen_t addrlen = sizeof(addr);
   int getaddr = getpeername(fd, (struct sockaddr*)&addr, &addrlen);
   std::string address(inet_ntoa(addr.sin_addr));
+  BOOST_LOG_TRIVIAL(debug) << "New Connection from " << address << " [UUID: " << states[fd].get_uuid() << "]";
   OK(fd, "*", "Welcome to IMAPlw. IMAP ready for requests from " + address);
 }
 template <class AuthP, class DataP>
@@ -60,20 +61,20 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::tls_setup() {
   tls = tls_server();
   unsigned int protocols = 0;
   if (tls_config_parse_protocols(&protocols, config.versions) < 0) {
-    printf("tls_config_parse_protocols error\n");
+    BOOST_LOG_TRIVIAL(fatal) << "tls_config_parse_protocols error";
   }
   tls_config_set_protocols(t_conf, protocols);
   if (tls_config_set_ciphers(t_conf, config.ciphers) < 0) {
-    printf("tls_config_set_ciphers error\n");
+    BOOST_LOG_TRIVIAL(fatal) << "tls_config_set_ciphers error";
   }
   if (tls_config_set_key_file(t_conf, config.keypath) < 0) {
-    printf("tls_config_set_key_file error\n");
+    BOOST_LOG_TRIVIAL(fatal) << "tls_config_set_key_file error";
   }
   if (tls_config_set_cert_file(t_conf, config.certpath) < 0) {
-    printf("tls_config_set_cert_file error\n");
+    BOOST_LOG_TRIVIAL(fatal) << "tls_config_set_cert_file error";
   }
   if (tls_configure(tls, t_conf) < 0) {
-    printf("tls_configure error: %s\n", tls_error(tls));
+    BOOST_LOG_TRIVIAL(fatal) << "tls_configure error: %" << tls_error(tls);
   }
 }
 template <class AuthP, class DataP>
@@ -101,7 +102,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
   std::transform(
       command.begin(), command.end(), command.begin(),
       ::toupper);  // https://stackoverflow.com/questions/735204/convert-a-string-in-c-to-upper-case
-  
+  BOOST_LOG_TRIVIAL(trace) << states[fd].get_uuid() << " : " << command;
   typedef decltype(&IMAPProvider::IMAPProvider<AuthP, DataP>::CAPABILITY) one;
   typedef decltype(&IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE) two;
   typedef decltype(&IMAPProvider::IMAPProvider<AuthP, DataP>::LOGIN) three;
@@ -199,6 +200,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
       }
     }
   }else{
+    BOOST_LOG_TRIVIAL(debug) << "Command " << cmd << " Not Found [UUID: " << states[fd].get_uuid() << "]";
     BAD(fd, tag, "Command " + cmd + " Not Found.");
   }
 
@@ -286,6 +288,9 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE(
           respond(rfd, "*", "CAPABILITY",
                   "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE");
           OK(rfd, tag, "AUTHENTICATE Success. Welcome " + username);
+        }else{
+          BOOST_LOG_TRIVIAL(warning) << "FAILED LOGIN ATTEMPT BY " << states[rfd].get_uuid();
+          NO(rfd, tag, "[AUTHENTICATIONFAILED] Invalid Credentials");
         }
       }
     }
@@ -298,6 +303,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE(
         OK(rfd, tag, "AUTHENTICATE Success.");
       }
     } catch (const std::exception& excp) {
+      BOOST_LOG_TRIVIAL(warning) << "FAILED LOGIN ATTEMPT BY " << states[rfd].get_uuid();
       NO(rfd, tag, excp.what());
     }
 }
@@ -311,6 +317,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LOGIN(
             "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE");
     OK(rfd, tag, "LOGIN Success.");
   } else {
+    BOOST_LOG_TRIVIAL(warning) << "FAILED LOGIN ATTEMPT BY " << states[rfd].get_uuid();
     NO(rfd, tag, "[AUTHENTICATIONFAILED] Invalid Credentials");
   }
 }
