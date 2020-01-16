@@ -170,28 +170,28 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
       if(auto fnVal = std::get_if<one>(ptr)){
         auto fn = *fnVal;
         if(states[fd].state() >= routeMinState[command]){
-          (this->*fn)(fd,args.rest(0));
+          (this->*fn)(fd,tag);
         }else{
           NO(fd, tag, "Command " + command + " Not Allowed At This Time.");
         }
       }else if(auto fnVal = std::get_if<two>(ptr)){
         auto fn = *fnVal;
         if(states[fd].state() >= routeMinState[command]){
-          (this->*fn)(fd,args[0], args.rest(1));
+          (this->*fn)(fd,tag, args.rest(0));
         }else{
           NO(fd, tag, "Command " + command + " Not Allowed At This Time.");
         }
       }else if(auto fnVal = std::get_if<three>(ptr)){
         auto fn = *fnVal;
         if(states[fd].state() >= routeMinState[command]){
-          (this->*fn)(fd,args[0], args[1], args.rest(2));
+          (this->*fn)(fd,tag, args[0], args.rest(1));
         }else{
           NO(fd, tag, "Command " + command + " Not Allowed At This Time.");
         }
       }else if(auto fnVal = std::get_if<four>(ptr)){
         auto fn = *fnVal;
         if(states[fd].state() >= routeMinState[command]){
-          (this->*fn)(fd,args[0], args[1], args[2], args.rest(3));
+          (this->*fn)(fd,tag, args[0], args[1], args.rest(2));
         }else{
           NO(fd, tag, "Command " + command + " Not Allowed At This Time.");
         }
@@ -430,23 +430,28 @@ template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(int rfd, const std::string& tag,
                                                     const std::string& reference,
                                                     const std::string& name) const {
-  char* ref = new char[reference.length()];
-  strncpy(ref, reference.c_str(), reference.length());
-  char* mboxs = new char[name.length()];
-  strncpy(mboxs, name.c_str(), name.length());
+  // char* ref = new char[reference.length()];
+  std::string ref = reference;
+  char* cref = &ref[0];
+  // strncpy(ref, reference.c_str(), reference.length());
+  // char* mboxs = new char[name.length()];
+  // strncpy(mboxs, name.c_str(), name.length());
+  std::string mboxs = name;
+  char* cmboxs = &mboxs[0];
   std::vector<std::string> mboxPath;
   if (mboxs[0] != '/') {
-    while (const char* token = strtok_r(ref, "/.", &ref)) {
+    while (const char* token = strtok_r(cref, "/.", &cref)) {
       mboxPath.push_back(std::string(token));
     }
   }
-  while (const char* token = strtok_r(mboxs, "/.", &mboxs)) {
+  while (const char* token = strtok_r(cmboxs, "/.", &cmboxs)) {
     mboxPath.push_back(std::string(token));
   }
   std::vector<mailbox> lres;
-  DP.list(states[rfd].getUser(), join(mboxPath, "/"), lres);
-  delete[] ref;
-  delete[] mboxs;
+  // delete[] ref;
+  // delete[] mboxs;
+  auto joined = join(mboxPath, "/");
+  DP.list(states[rfd].getUser(), joined, lres);
   if (lres.size() > 0) {
     for (auto box : std::as_const(lres)) {
       std::stringstream listres;
@@ -467,23 +472,27 @@ template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(int rfd, const std::string& tag,
                                                     const std::string& reference,
                                                     const std::string& name) const {
-  char* ref = new char[reference.length()];
-  strncpy(ref, reference.c_str(), reference.length());
-  char* mboxs = new char[name.length()];
-  strncpy(mboxs, name.c_str(), name.length());
+  // char* ref = new char[reference.length()];
+  std::string ref = reference;
+  char* cref = &ref[0];
+  // strncpy(ref, reference.c_str(), reference.length());
+  // char* mboxs = new char[name.length()];
+  // strncpy(mboxs, name.c_str(), name.length());
+  std::string mboxs = name;
+  char* cmboxs = &mboxs[0];
   std::vector<std::string> mboxPath;
   if (mboxs[0] != '/') {
-    while (const char* token = strtok_r(ref, "/.", &ref)) {
+    while (const char* token = strtok_r(cref, "/.", &cref)) {
       mboxPath.push_back(std::string(token));
     }
   }
-  while (const char* token = strtok_r(mboxs, "/.", &mboxs)) {
+  while (const char* token = strtok_r(cmboxs, "/.", &cmboxs)) {
     mboxPath.push_back(std::string(token));
   }
   std::vector<mailbox> lres;
   DP.lsub(states[rfd].getUser(), join(mboxPath, "/"), lres);
-  delete[] ref;
-  delete[] mboxs;
+  // delete[] ref;
+  // delete[] mboxs;
   if (lres.size() > 0) {
     for (auto box : std::as_const(lres)) {
       std::stringstream listres;
