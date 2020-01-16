@@ -15,6 +15,9 @@
 #include <string>
 #include <vector>
 
+#ifndef __H_WORDLIST__
+#define __H_WORDLIST__
+
 class WordList {
  private:
   std::vector<std::string> words;
@@ -48,3 +51,4 @@ class WordList {
   std::vector<std::string>::iterator begin() { return words.begin(); }
   std::vector<std::string>::iterator end() { return words.end(); }
 };
+#endif

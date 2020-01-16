@@ -18,7 +18,7 @@
 #define __IMAP_CLIENT_STATE__
 
 namespace IMAPProvider {
-typedef enum { UNENC, UNAUTH, AUTH, SELECTED } IMAPState_t;
+typedef enum { UNENC = 0, UNAUTH = 1, AUTH = 2, SELECTED = 3 } IMAPState_t;
 template <typename A>
 class ClientStateModel {
  private:
