@@ -12,6 +12,7 @@
  */
 #include <functional>
 #include <unordered_map>
+#include <variant>
 template <class AuthP, class DataP>
 std::map<int, typename IMAPProvider::ClientStateModel<AuthP> >
     IMAPProvider::IMAPProvider<AuthP, DataP>::states;
