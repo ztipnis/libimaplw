@@ -1,4 +1,15 @@
-
+/*
+ * Copyright [2020] <Zachary Tipnis> – All Rights Reserved
+ *
+ * The use (including but not limited to modification and
+ * distribution) of this source file and its contents shall
+ * be governed by the terms of the MIT License.
+ *
+ * You should have received a copy of the MIT License with
+ * this file. If not, please write to "zatipnis@icloud.com"
+ * or visit: https://zacharytipnis.com
+ *
+ */
 #include <functional>
 #include <unordered_map>
 template <class AuthP, class DataP>
@@ -45,6 +56,10 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::connect(int fd) const {
   struct sockaddr_in addr;
   socklen_t addrlen = sizeof(addr);
   int getaddr = getpeername(fd, (struct sockaddr*)&addr, &addrlen);
+  if(getaddr == -1){
+      BAD(fd, "*", "Welcome to IMAPlw. IMAP ready for requests from [error... Peer Address Not Found]");
+      return;
+  }
   std::string address(inet_ntoa(addr.sin_addr));
   BOOST_LOG_TRIVIAL(debug) << "New Connection from " << address << " [UUID: " << states[fd].get_uuid() << "]";
   OK(fd, "*", "Welcome to IMAPlw. IMAP ready for requests from " + address);

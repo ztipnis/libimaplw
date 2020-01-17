@@ -1,3 +1,15 @@
+/*
+ * Copyright [2020] <Zachary Tipnis> – All Rights Reserved
+ *
+ * The use (including but not limited to modification and
+ * distribution) of this source file and its contents shall
+ * be governed by the terms of the MIT License.
+ *
+ * You should have received a copy of the MIT License with
+ * this file. If not, please write to "zatipnis@icloud.com"
+ * or visit: https://zacharytipnis.com
+ *
+ */
 class GAuthP : public IMAPProvider::AuthenticationModel {
  public:
   bool lookup(std::string username) { return true; }

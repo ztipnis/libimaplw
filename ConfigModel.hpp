@@ -27,8 +27,8 @@ class ConfigModel {
               const char* _ciphers, const char* _keypath, const char* _certpath)
       : secure(_secure),
         starttls(_starttls),
-        versions(_versions),
         ciphers(_ciphers),
+        versions(_versions),
         keypath(_keypath),
         certpath(_certpath) {}
 };

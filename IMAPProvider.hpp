@@ -132,7 +132,10 @@ class IMAPProvider : public Pollster::Handler {
     BOOST_LOG_TRIVIAL(trace) << "New IMAPProvider Initialized (n: " << ++ctr << ", addr: " << this << ")";
     if (cfg.secure || cfg.starttls) tls_setup();
   }
-  ~IMAPProvider() { if(config.secure || config.starttls) tls_cleanup(); }
+  ~IMAPProvider() {
+    if(config.secure || config.starttls) tls_cleanup();
+    BOOST_LOG_TRIVIAL(trace) << "IMAPlw (addr: " << this << ") is shutting down...";
+  }
   void operator()(int fd) const;
   void disconnect(int fd, const std::string& reason) const;
   void connect(int fd) const;
