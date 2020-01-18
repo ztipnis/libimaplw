@@ -119,38 +119,38 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
       command.begin(), command.end(), command.begin(),
       ::toupper);  // https://stackoverflow.com/questions/735204/convert-a-string-in-c-to-upper-case
   BOOST_LOG_TRIVIAL(trace) << states[fd].get_uuid() << " : " << command;
-  typedef decltype(&IMAPProvider::IMAPProvider<AuthP, DataP>::CAPABILITY) one;
-  typedef decltype(&IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE) two;
-  typedef decltype(&IMAPProvider::IMAPProvider<AuthP, DataP>::LOGIN) three;
-  typedef decltype(&IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND) four;
+  typedef decltype(&IMAPProvider::CAPABILITY) one;
+  typedef decltype(&IMAPProvider::AUTHENTICATE) two;
+  typedef decltype(&IMAPProvider::LOGIN) three;
+  typedef decltype(&IMAPProvider::APPEND) four;
   typedef std::variant< one, two, three, four > variedFunc;
 
   static std::unordered_map<std::string, variedFunc> routeMap = {
-    {"CAPABILITY", &IMAPProvider::IMAPProvider<AuthP, DataP>::CAPABILITY},
-    {"NOOP", &IMAPProvider::IMAPProvider<AuthP, DataP>::NOOP},
-    {"LOGOUT", &IMAPProvider::IMAPProvider<AuthP, DataP>::LOGOUT},
-    {"STARTTLS", &IMAPProvider::IMAPProvider<AuthP, DataP>::STARTTLS},
-    {"AUTHENTICATE", &IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE},
-    {"LOGIN", &IMAPProvider::IMAPProvider<AuthP, DataP>::LOGIN},
-    {"SELECT", &IMAPProvider::IMAPProvider<AuthP, DataP>::SELECT},
-    {"EXAMINE", &IMAPProvider::IMAPProvider<AuthP, DataP>::EXAMINE},
-    {"CREATE", &IMAPProvider::IMAPProvider<AuthP, DataP>::CREATE},
-    {"DELETE", &IMAPProvider::IMAPProvider<AuthP, DataP>::DELETE},
-    {"RENAME", &IMAPProvider::IMAPProvider<AuthP, DataP>::RENAME},
-    {"SUBSCRIBE", &IMAPProvider::IMAPProvider<AuthP, DataP>::SUBSCRIBE},
-    {"UNSUBSCRIBE", &IMAPProvider::IMAPProvider<AuthP, DataP>::UNSUBSCRIBE},
-    {"LIST", &IMAPProvider::IMAPProvider<AuthP, DataP>::LIST},
-    {"LSUB", &IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB},
-    {"STATUS", &IMAPProvider::IMAPProvider<AuthP, DataP>::STATUS},
-    {"APPEND", &IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND},
-    {"CHECK", &IMAPProvider::IMAPProvider<AuthP, DataP>::CHECK},
-    {"CLOSE", &IMAPProvider::IMAPProvider<AuthP, DataP>::CLOSE},
-    {"UNSELECT", &IMAPProvider::IMAPProvider<AuthP, DataP>::UNSELECT},
-    {"EXPUNGE", &IMAPProvider::IMAPProvider<AuthP, DataP>::EXPUNGE},
-    {"SEARCH", &IMAPProvider::IMAPProvider<AuthP, DataP>::SEARCH},
-    {"STORE", &IMAPProvider::IMAPProvider<AuthP, DataP>::STORE},
-    {"COPY", &IMAPProvider::IMAPProvider<AuthP, DataP>::COPY},
-    {"UID", &IMAPProvider::IMAPProvider<AuthP, DataP>::UID}
+    {"CAPABILITY", &IMAPProvider::CAPABILITY},
+    {"NOOP", &IMAPProvider::NOOP},
+    {"LOGOUT", &IMAPProvider::LOGOUT},
+    {"STARTTLS", &IMAPProvider::STARTTLS},
+    {"AUTHENTICATE", &IMAPProvider::AUTHENTICATE},
+    {"LOGIN", &IMAPProvider::LOGIN},
+    {"SELECT", &IMAPProvider::SELECT},
+    {"EXAMINE", &IMAPProvider::EXAMINE},
+    {"CREATE", &IMAPProvider::CREATE},
+    {"DELETE", &IMAPProvider::DELETE},
+    {"RENAME", &IMAPProvider::RENAME},
+    {"SUBSCRIBE", &IMAPProvider::SUBSCRIBE},
+    {"UNSUBSCRIBE", &IMAPProvider::UNSUBSCRIBE},
+    {"LIST", &IMAPProvider::LIST},
+    {"LSUB", &IMAPProvider::LSUB},
+    {"STATUS", &IMAPProvider::STATUS},
+    {"APPEND", &IMAPProvider::APPEND},
+    {"CHECK", &IMAPProvider::CHECK},
+    {"CLOSE", &IMAPProvider::CLOSE},
+    {"UNSELECT", &IMAPProvider::UNSELECT},
+    {"EXPUNGE", &IMAPProvider::EXPUNGE},
+    {"SEARCH", &IMAPProvider::SEARCH},
+    {"STORE", &IMAPProvider::STORE},
+    {"COPY", &IMAPProvider::COPY},
+    {"UID", &IMAPProvider::UID}
   };
   static std::unordered_map<std::string, IMAPState_t> routeMinState = {
     {"CAPABILITY", UNENC},
