@@ -127,7 +127,7 @@ class IMAPProvider : public Pollster::Handler {
   DataModel& DP = DataModel::getInst<DataP>();
 
  public:
-  IMAPProvider(ConfigModel& cfg) : config(cfg) {
+  explicit IMAPProvider(ConfigModel& cfg) : config(cfg) {
     static int ctr = 0;
     BOOST_LOG_TRIVIAL(trace) << "New IMAPProvider Initialized (n: " << ++ctr << ", addr: " << this << ")";
     if (cfg.secure || cfg.starttls) tls_setup();

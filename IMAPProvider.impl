@@ -439,12 +439,8 @@ template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(
     int rfd, const std::string& tag, const std::string& reference,
     const std::string& name) const {
-  // char* ref = new char[reference.length()];
   std::string ref = reference;
   char* cref = &ref[0];
-  // strncpy(ref, reference.c_str(), reference.length());
-  // char* mboxs = new char[name.length()];
-  // strncpy(mboxs, name.c_str(), name.length());
   std::string mboxs = name;
   char* cmboxs = &mboxs[0];
   std::vector<std::string> mboxPath;
@@ -457,8 +453,6 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(
     mboxPath.push_back(std::string(token));
   }
   std::vector<mailbox> lres;
-  // delete[] ref;
-  // delete[] mboxs;
   auto joined = join(mboxPath, "/");
   DP.list(states[rfd].getUser(), joined, lres);
   if (lres.size() > 0) {
@@ -484,9 +478,6 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(
   // char* ref = new char[reference.length()];
   std::string ref = reference;
   char* cref = &ref[0];
-  // strncpy(ref, reference.c_str(), reference.length());
-  // char* mboxs = new char[name.length()];
-  // strncpy(mboxs, name.c_str(), name.length());
   std::string mboxs = name;
   char* cmboxs = &mboxs[0];
   std::vector<std::string> mboxPath;
@@ -500,8 +491,6 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(
   }
   std::vector<mailbox> lres;
   DP.lsub(states[rfd].getUser(), join(mboxPath, "/"), lres);
-  // delete[] ref;
-  // delete[] mboxs;
   if (lres.size() > 0) {
     for (auto box : std::as_const(lres)) {
       std::stringstream listres;
@@ -566,13 +555,11 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND(
     int rcvd = 0;
     int msg_sz = 0;
     sscanf(msgsize.c_str(), "{%d}", &msg_sz);
-    std::string data(msg_sz + 1, 0);
     std::stringstream buffer;
     for (int total_rcvd = 0; total_rcvd < msg_sz; total_rcvd += rcvd) {
       auto rec = receive(rfd);
       rcvd = rec.first;
-      std::string data = rec.second;
-      buffer << data;
+      buffer << rec.second;
     }
     std::string dat = buffer.str();
     DP.append(states[rfd].getUser(), mailbox, dat);

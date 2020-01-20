@@ -32,14 +32,7 @@ class ClientStateModel {
  public:
   bool isSubscribedToChanges = false;
   struct tls* tls = NULL;
-  ClientStateModel() {
-    encrypted = false;
-    authenticated = false;
-    user = "";
-    selected = false;
-    mbox = "";
-    uuid = gen_uuid(15);
-  }
+  ClientStateModel() : encrypted(false), authenticated(false), user(""), selected(false), mbox(""),uuid(gen_uuid(15)){}
   const IMAPState_t state() const {
     if (!encrypted && !authenticated) {
       return UNENC;

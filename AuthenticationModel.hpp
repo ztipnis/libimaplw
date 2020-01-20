@@ -17,9 +17,9 @@
 namespace IMAPProvider {
 class AuthenticationModel {
  public:
-  virtual bool lookup(std::string username) = 0;
-  virtual bool authenticate(std::string username, std::string password) = 0;
-  virtual std::string SASL(struct tls* fd, std::string mechanism) = 0;
+  virtual bool lookup(const std::string& username) = 0;
+  virtual bool authenticate(const std::string& username, const std::string& password) = 0;
+  virtual const std::string SASL(struct tls* fd, const std::string& mechanism) = 0;
   const std::string capabilityString;
   template <typename T>
   static AuthenticationModel& getInst() {
@@ -32,7 +32,7 @@ class AuthenticationModel {
   AuthenticationModel& operator=(AuthenticationModel const&) = delete;
 
  protected:
-  AuthenticationModel(std::string capabilities)
+  explicit AuthenticationModel(const std::string& capabilities)
       : capabilityString(capabilities) {}
 };
 }  // namespace IMAPProvider

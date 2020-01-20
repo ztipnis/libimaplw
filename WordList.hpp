@@ -23,7 +23,7 @@ class WordList {
   std::vector<std::string> words;
 
  public:
-  WordList(std::string s) {
+  explicit WordList(std::string s) {
     std::stringstream ss(s);
     std::string sn;
     while (ss >> sn) words.push_back(sn);
@@ -33,7 +33,7 @@ class WordList {
     if (n >= words.size()) return "";
     return words[n];
   }
-  std::string getWords(unsigned int from, unsigned int n) const {
+  std::string getWords(unsigned int from, int n) const {
     std::stringstream ss;
     if (from + n >= words.size()) {
       n = words.size() - from;

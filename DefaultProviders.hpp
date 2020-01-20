@@ -12,16 +12,16 @@
  */
 class GAuthP : public IMAPProvider::AuthenticationModel {
  public:
-  bool lookup(std::string username) { return true; }
-  bool authenticate(std::string username, std::string password) { return true; }
-  std::string SASL(struct tls* fd, std::string mechanism) { return ""; }
+  bool lookup(const std::string& username) { return true; }
+  bool authenticate(const std::string& username, const std::string& password) { return true; }
+  const std::string SASL(struct tls* fd, const std::string& mechanism) { return ""; }
   GAuthP() : AuthenticationModel("AUTH=PLAIN") {}
 };
 class DAuthP : public IMAPProvider::DataModel {
  public:
   DAuthP() : DataModel() {}
   selectResp select(const std::string& user, const std::string& mailbox) {
-    selectResp r;
+    selectResp r = {};
     return r;
   };
   virtual int messages(const std::string& user, const std::string& mailbox) {
