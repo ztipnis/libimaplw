@@ -72,7 +72,7 @@ class ClientStateModel {
     }
     return false;
   }
-  void select(std::string mailbox) {
+  void select(const std::string& mailbox) {
     mbox = mailbox;
     selected = true;
   }
