@@ -28,11 +28,13 @@ class ClientStateModel {
   std::string user;
   bool selected;
   std::string mbox;
+  bool compressed;
 
  public:
+  bool& isCompressed() { return compressed; }
   bool isSubscribedToChanges = false;
   struct tls* tls = NULL;
-  ClientStateModel() : encrypted(false), authenticated(false), user(""), selected(false), mbox(""),uuid(gen_uuid(15)){}
+  ClientStateModel() : encrypted(false), authenticated(false), user(""), selected(false), mbox(""),uuid(gen_uuid(15)), compressed(false){}
   const IMAPState_t state() const {
     if (!encrypted && !authenticated) {
       return UNENC;

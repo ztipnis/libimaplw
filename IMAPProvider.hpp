@@ -21,6 +21,7 @@
 #include <type_traits>
 #include <utility>
 #include <boost/log/trivial.hpp>
+#include <cerrno>
 
 #include "ClientStateModel.hpp"
 #include "ConfigModel.hpp"
@@ -75,8 +76,10 @@ class IMAPProvider : public Pollster::Handler {
   void STORE(int rfd, const std::string& tag) const;
   void COPY(int rfd, const std::string& tag) const;
   void UID(int rfd, const std::string& tag) const;
-  static void newDataAvailable(int rfd, const std::vector<std::string>& data) {
-    for (const std::string& d : data) respond(rfd, "*", "", d);
+  void COMPRESS(int rfd, const std::string& tag, const std::string& type) const;
+
+  static void newDataAvailable(int rfd, bool& compressed, const std::vector<std::string>& data) {
+    for (const std::string& d : data) respond(rfd, "*", "", d, compressed);
   }
 
   std::pair<size_t, const std::string> receive(int fd) const {
@@ -84,39 +87,76 @@ class IMAPProvider : public Pollster::Handler {
     int rcvd;
     if (states[fd].state() != UNENC) {
       rcvd = tls_read(states[fd].tls, &data[0], 8912);
+      while(rcvd == TLS_WANT_POLLIN || rcvd == TLS_WANT_POLLOUT){
+        usleep(10000);
+        rcvd = tls_read(states[fd].tls, &data[0], 8912);
+      }
     } else {
       rcvd = recv(fd, &data[0], 8192, MSG_DONTWAIT);
+      while(rcvd < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)){
+        usleep(10000);
+        rcvd = recv(fd, &data[0], 8192, MSG_DONTWAIT);
+      }
     }
     data.resize(rcvd);
-    return {rcvd, data.c_str()};
+    BOOST_LOG_TRIVIAL(trace) << "RECEIVED:" << data;
+    if(states[fd].isCompressed()){
+      BOOST_LOG_TRIVIAL(trace) << "INFLATED:" << data;
+      return {rcvd, inflate(data).c_str()};
+    }else{
+      return {rcvd, data.c_str()};
+    }
+    
   }
 
   // RESPONSES
-  static inline void respond(int rfd, const std::string& tag, const std::string& code,
-                             const std::string& message) {
+  static int respond(int rfd, const std::string& tag, const std::string& code,
+                             const std::string& message, bool compressed){
     std::stringstream msg;
     msg << tag << " " << code << " " << message << std::endl;
+    BOOST_LOG_TRIVIAL(trace) << msg.str();
+    std::string ret_str;
+    if(compressed){
+      ret_str = deflate(msg.str(), 6);
+    }else{
+      ret_str = msg.str();
+    }
     if (states[rfd].tls == NULL) {
-      sendMsg(rfd, msg.str());
+      return sendMsg(rfd, ret_str);
     } else {
-      sendMsg(states[rfd].tls, msg.str());
+      return sendMsg(states[rfd].tls, rfd, ret_str);
     }
   }
 
   void OK(int rfd, const std::string& tag, const std::string& message) const {
-    respond(rfd, tag, "OK", message + " " + states[rfd].get_uuid());
+    int i = respond(rfd, tag, "OK", message + " " + states[rfd].get_uuid(), states[rfd].isCompressed());
+    if(i != 0){
+      disconnect(rfd, "");
+    }
   }
   void NO(int rfd, const std::string& tag, const std::string& message) const {
-    respond(rfd, tag, "NO", message + " " + states[rfd].get_uuid());
+    int i = respond(rfd, tag, "NO", message + " " + states[rfd].get_uuid(), states[rfd].isCompressed());
+    if(i != 0){
+      disconnect(rfd, "");
+    }
   }
   void BAD(int rfd, const std::string& tag, const std::string& message) const {
-    respond(rfd, tag, "BAD", message + " " + states[rfd].get_uuid());
+    int i = respond(rfd, tag, "BAD", message + " " + states[rfd].get_uuid(), states[rfd].isCompressed());
+    if(i != 0){
+      disconnect(rfd, "");
+    }
   }
   void PREAUTH(int rfd, const std::string& tag, const std::string& message) const {
-    respond(rfd, tag, "PREAUTH", message + " " + states[rfd].get_uuid());
+    int i = respond(rfd, tag, "PREAUTH", message + " " + states[rfd].get_uuid(), states[rfd].isCompressed());
+    if(i != 0){
+      disconnect(rfd, "");
+    }
   }
   void BYE(int rfd, const std::string& tag, const std::string& message) const {
-    respond(rfd, tag, "BYE", message + " " + states[rfd].get_uuid());
+    int i = respond(rfd, tag, "BYE", message + " " + states[rfd].get_uuid(), states[rfd].isCompressed());
+    if(i != 0){
+      disconnect(rfd, "");
+    }
   }
   void route(int fd, const std::string& tag, const std::string& command,
              const WordList& args) const;
@@ -127,7 +167,7 @@ class IMAPProvider : public Pollster::Handler {
   DataModel& DP = DataModel::getInst<DataP>();
 
  public:
-  explicit IMAPProvider(ConfigModel& cfg) : config(cfg) {
+  explicit IMAPProvider(const ConfigModel& cfg) : config(cfg) {
     static int ctr = 0;
     BOOST_LOG_TRIVIAL(trace) << "New IMAPProvider Initialized (n: " << ++ctr << ", addr: " << this << ")";
     if (cfg.secure || cfg.starttls) tls_setup();

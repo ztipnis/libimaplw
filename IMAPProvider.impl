@@ -13,6 +13,8 @@
 #include <functional>
 #include <unordered_map>
 #include <variant>
+#include <unistd.h>
+
 template <class AuthP, class DataP>
 std::map<int, typename IMAPProvider::ClientStateModel<AuthP> >
     IMAPProvider::IMAPProvider<AuthP, DataP>::states;
@@ -20,16 +22,19 @@ template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::operator()(int fd) const {
   auto rec = receive(fd);
   int rcvd = rec.first;
-  std::string data = rec.second;
+  std::string recData = rec.second;
+  std::stringstream data(recData);
   if (rcvd == -1) {
     disconnect(fd, "Unable to read from socket");
   } else {
-    parse(fd, data);
+    for(std::string line; std::getline(data, line);)
+      parse(fd,line);
   }
 }
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::disconnect(
     int fd, const std::string& reason) const {
+  BOOST_LOG_TRIVIAL(debug) << " [UUID: " << states[fd].get_uuid() << "] Disconnected" << (reason == "" ? "" : ": " + reason);
   if (reason != "") {
     BYE(fd, "*", reason);
   }
@@ -47,7 +52,12 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::connect(int fd) const {
     if (tls_accept_socket(tls, &states[fd].tls, fd) < 0) {
       disconnect(fd, "TLS Negotiation Failed");
     } else {
-      if (tls_handshake(states[fd].tls) < 0) {
+      int hndshk = tls_handshake(states[fd].tls);
+      while(hndshk == TLS_WANT_POLLIN || hndshk == TLS_WANT_POLLOUT){
+        usleep(10000);
+        hndshk = tls_handshake(states[fd].tls);
+      }
+      if (hndshk < 0) {
         disconnect(fd, "TLS Negotiation Failed");
       } else {
         states[fd].starttls();
@@ -153,7 +163,9 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
       {"SEARCH", &IMAPProvider::SEARCH},
       {"STORE", &IMAPProvider::STORE},
       {"COPY", &IMAPProvider::COPY},
-      {"UID", &IMAPProvider::UID}};
+      {"UID", &IMAPProvider::UID},
+      {"COMPRESS", &IMAPProvider::COMPRESS}
+    };
   static std::unordered_map<std::string, IMAPState_t> routeMinState = {
       {"CAPABILITY", UNENC}, {"NOOP", UNENC},         {"LOGOUT", UNENC},
       {"STARTTLS", UNENC},   {"AUTHENTICATE", UNENC}, {"LOGIN", UNENC},
@@ -225,13 +237,13 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::CAPABILITY(
     int rfd, const std::string& tag) const {
   if (config.starttls && !config.secure && (states[rfd].state() == UNENC)) {
     respond(rfd, "*", "CAPABILITY",
-            "IMAP4rev1 UTF8=ONLY STARTTLS LOGINDISABLED");
+            "IMAP4rev1 UTF8=ONLY STARTTLS LOGINDISABLED", states[rfd].isCompressed());
   } else if (states[rfd].state() == UNAUTH || states[rfd].state() == UNENC) {
     respond(rfd, "*", "CAPABILITY",
-            "IMAP4rev1 UTF8=ONLY " + AP.capabilityString);
+            "IMAP4rev1 UTF8=ONLY " + AP.capabilityString,states[rfd].isCompressed());
   } else {
     respond(rfd, "*", "CAPABILITY",
-            "IMAP4rev1 UTF8=ONLY COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE");
+            "IMAP4rev1 UTF8=ONLY COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE",states[rfd].isCompressed());
   }
   OK(rfd, tag, "CAPABILITY Success.");
 }
@@ -253,7 +265,12 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STARTTLS(
     if (tls_accept_socket(tls, &states[rfd].tls, rfd) < 0) {
       BAD(rfd, "*", "tls_accept_socket error");
     } else {
-      if (tls_handshake(states[rfd].tls) < 0) {
+      int hndshk = tls_handshake(states[rfd].tls);
+      while(hndshk == TLS_WANT_POLLIN || hndshk == TLS_WANT_POLLOUT){
+        usleep(10000);
+        hndshk = tls_handshake(states[rfd].tls);
+      }
+      if (hndshk < 0) {
         BAD(rfd, "*", "tls_handshake error");
       } else {
         states[rfd].starttls();
@@ -274,7 +291,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE(
   std::transform(mechanism.begin(), mechanism.end(), mechanism.begin(),
                  ::toupper);
   if (mechanism == "PLAIN") {
-    respond(rfd, "+", "", "Go Ahead");
+    respond(rfd, "+", "", "Go Ahead",states[rfd].isCompressed());
     auto rec = receive(rfd);
     int rcvd = rec.first;
     std::string data = rec.second;
@@ -291,7 +308,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE(
                     password = nullSepStr.substr(seploc + 1, std::string::npos);
         if (states[rfd].authenticate(username, password)) {
           respond(rfd, "*", "CAPABILITY",
-                  "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE");
+                  "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE", states[rfd].isCompressed());
           OK(rfd, tag, "AUTHENTICATE Success. Welcome " + username);
         } else {
           BOOST_LOG_TRIVIAL(warning)
@@ -305,7 +322,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE(
     try {
       if (states[rfd].SASL(mechanism)) {
         respond(rfd, "*", "CAPABILITY",
-                "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE");
+                "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE", states[rfd].isCompressed());
         OK(rfd, tag, "AUTHENTICATE Success.");
       }
     } catch (const std::exception& excp) {
@@ -321,7 +338,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LOGIN(
     const std::string& password) const {
   if (states[rfd].authenticate(username, password)) {
     respond(rfd, "*", "CAPABILITY",
-            "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE");
+            "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE", states[rfd].isCompressed());
     OK(rfd, tag, "LOGIN Success.");
   } else {
     BOOST_LOG_TRIVIAL(warning)
@@ -334,13 +351,13 @@ template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::SELECT(
     int rfd, const std::string& tag, const std::string& mailbox) const {
   states[rfd].select(mailbox);
-  auto onData = std::bind(newDataAvailable, rfd, std::placeholders::_1);
+  auto onData = std::bind(newDataAvailable, rfd, states[rfd].isCompressed(), std::placeholders::_1);
   states[rfd].isSubscribedToChanges =
       DP.subscribe(states[rfd].getUser(), mailbox, onData);
   selectResp r = DP.select(states[rfd].getUser(), mailbox);
-  respond(rfd, "*", "FLAGS", r.flags);
-  respond(rfd, "*", std::to_string(r.exists), "EXISTS");
-  respond(rfd, "*", std::to_string(r.recent), "RECENT");
+  respond(rfd, "*", "FLAGS", r.flags, states[rfd].isCompressed());
+  respond(rfd, "*", std::to_string(r.exists), "EXISTS", states[rfd].isCompressed());
+  respond(rfd, "*", std::to_string(r.recent), "RECENT", states[rfd].isCompressed());
   OK(rfd, "*", "[UNSEEN " + std::to_string(r.unseen) + "]");
   OK(rfd, "*", "[PERMANENTFLAGS " + r.permanentFlags + "]");
   OK(rfd, "*", "[UIDNEXT " + std::to_string(r.uidnext) + "]");
@@ -353,9 +370,9 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::EXAMINE(
     int rfd, const std::string& tag, const std::string& mailbox) const {
   states[rfd].select(mailbox);
   selectResp r = DP.select(states[rfd].getUser(), mailbox);
-  respond(rfd, "*", "FLAGS", r.flags);
-  respond(rfd, "*", std::to_string(r.exists), "EXISTS");
-  respond(rfd, "*", std::to_string(r.recent), "RECENT");
+  respond(rfd, "*", "FLAGS", r.flags, states[rfd].isCompressed());
+  respond(rfd, "*", std::to_string(r.exists), "EXISTS", states[rfd].isCompressed());
+  respond(rfd, "*", std::to_string(r.recent), "RECENT", states[rfd].isCompressed());
   OK(rfd, "*", "[UNSEEN " + std::to_string(r.unseen) + "]");
   OK(rfd, "*", "[PERMANENTFLAGS " + r.permanentFlags + "]");
   OK(rfd, "*", "[UIDNEXT " + std::to_string(r.uidnext) + "]");
@@ -463,7 +480,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(
       listres << "\b"
               << ") "
               << "\"/\"" << box.path;
-      respond(rfd, "*", "LIST", listres.str());
+      respond(rfd, "*", "LIST", listres.str(), states[rfd].isCompressed());
     }
     OK(rfd, tag, "LIST Success.");
   } else {
@@ -499,7 +516,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(
       listres << "\b"
               << ") "
               << "\"/\"" << box.path;
-      respond(rfd, "*", "LSUB", listres.str());
+      respond(rfd, "*", "LSUB", listres.str(), states[rfd].isCompressed());
     }
     OK(rfd, tag, "LSUB Success.");
   } else {
@@ -537,7 +554,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STATUS(
       ret.seekp(-1, ret.cur);
     }
     ret << ")";
-    respond(rfd, "*", "STATUS", ret.str());
+    respond(rfd, "*", "STATUS", ret.str(), states[rfd].isCompressed());
     OK(rfd, tag, "STATUS Success.");
   } else {
     NO(rfd, tag, "STATUS Failed. No Status for that name.");
@@ -551,7 +568,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND(
   if (!DP.mailboxExists(states[rfd].getUser(), mailbox)) {
     NO(rfd, tag, "[TRYCREATE] APPEND Failed.");
   } else {
-    respond(rfd, "+", "", "Go Ahead");
+    respond(rfd, "+", "", "Go Ahead", states[rfd].isCompressed());
     int rcvd = 0;
     int msg_sz = 0;
     sscanf(msgsize.c_str(), "{%d}", &msg_sz);
@@ -594,7 +611,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::EXPUNGE(
   std::vector<std::string> expunged;
   DP.expunge(states[rfd].getUser(), states[rfd].getMBox(), expunged);
   for (std::string uid : expunged) {
-    respond(rfd, "*", uid, "EXPUNGE");
+    respond(rfd, "*", uid, "EXPUNGE", states[rfd].isCompressed());
   }
   OK(rfd, tag, "EXPUNGE Success.");
 }
@@ -614,3 +631,13 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::COPY(
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::UID(
     int rfd, const std::string& tag) const {}
+template <class AuthP, class DataP>
+void IMAPProvider::IMAPProvider<AuthP, DataP>::COMPRESS(
+    int rfd, const std::string& tag, const std::string& type) const {
+  if(states[rfd].isCompressed()){
+    BAD(rfd, tag, "[COMPRESSIONACTIVE] Compression already enabled.");
+  }else{
+      OK(rfd, tag, "COMPRESS Success. Compression now active.");
+      states[rfd].isCompressed() = true;
+  }
+}
