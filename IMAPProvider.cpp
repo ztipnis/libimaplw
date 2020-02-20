@@ -53,8 +53,10 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::connect(int fd) const {
       disconnect(fd, "TLS Negotiation Failed");
     } else {
       int hndshk = tls_handshake(states[fd].tls);
+      struct timespec tim, tim2;
       while(hndshk == TLS_WANT_POLLIN || hndshk == TLS_WANT_POLLOUT){
-        usleep(10000);
+        tim.tv_nsec = 10000000L;
+        nanosleep(tim, &tim2);
         hndshk = tls_handshake(states[fd].tls);
       }
       if (hndshk < 0) {
@@ -533,7 +535,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STATUS(
   if (DP.mailboxExists(states[rfd].getUser(), mailbox)) {
     const char* request = datareq.c_str();
     std::string paramstr(8192, 0);
-    sscanf(request, "%*[(] %[^()] %*[)])", &paramstr[0]);
+    sscanf(request, "%*[(] %8192[^()] %*[)])", &paramstr[0]);
     WordList params(paramstr.c_str());
     std::stringstream ret;
     ret << "(";
