@@ -56,7 +56,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::connect(int fd) const {
       struct timespec tim, tim2;
       while(hndshk == TLS_WANT_POLLIN || hndshk == TLS_WANT_POLLOUT){
         tim.tv_nsec = 10000000L;
-        nanosleep(tim, &tim2);
+        nanosleep(&tim, &tim2);
         hndshk = tls_handshake(states[fd].tls);
       }
       if (hndshk < 0) {

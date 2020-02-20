@@ -30,8 +30,8 @@
 #define __IMAP_HELPERS__
 
 #define ifThenElse(a,b,c) (a ? b : c)
-#define min(a,b) ( a < b ? a : b)
-#define max(a,b) ( a > b ? a : b)
+#define __min__(a,b) ( a < b ? a : b)
+#define __max__(a,b) ( a > b ? a : b)
 
 std::string gen_uuid(int len) {
   uuid_t id;
@@ -127,7 +127,7 @@ std::string base64_decode(const std::string &in) {
 const std::string deflate(const std::string& data, const int level){
   z_stream strm = {0};
   std::string outbuf(Z_BUF_SIZE, 0);
-  std::string inbuf(min(Z_BUF_SIZE, data.length()), 0);
+  std::string inbuf(__min__(Z_BUF_SIZE, data.length()), 0);
   std::stringstream buf;
   strm.next_out = reinterpret_cast<unsigned char*>(&outbuf[0]);
   strm.avail_out = Z_BUF_SIZE;
@@ -142,7 +142,7 @@ const std::string deflate(const std::string& data, const int level){
   }
   while(1){
     if(!strm.avail_in){
-      uint bytesToRead = min(Z_BUF_SIZE, remaining);
+      uint bytesToRead = __min__(Z_BUF_SIZE, remaining);
       inbuf = data.substr(data.length() - remaining, bytesToRead);
       strm.next_in = reinterpret_cast<unsigned char*>(&inbuf[0]);
       strm.avail_in = bytesToRead;
@@ -190,7 +190,7 @@ const std::string inflate(const std::string& data){
   while(remaining > 0){
     std::cout << strm.avail_in + remaining << std::endl;
     if(strm.avail_in <= 0){
-      uint bytesToRead = min(Z_BUF_SIZE, remaining);
+      uint bytesToRead = __min__(Z_BUF_SIZE, remaining);
       inbuf = data.substr(data.length() - remaining, bytesToRead);
       strm.next_in = reinterpret_cast<unsigned char*>(&inbuf[0]);
       strm.avail_in = bytesToRead;
