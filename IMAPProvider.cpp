@@ -161,6 +161,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
       {"UNSELECT", &IMAPProvider::UNSELECT},
       {"EXPUNGE", &IMAPProvider::EXPUNGE},
       {"SEARCH", &IMAPProvider::SEARCH},
+      {"SEARCH", &IMAPProvider::FETCH},
       {"STORE", &IMAPProvider::STORE},
       {"COPY", &IMAPProvider::COPY},
       {"UID", &IMAPProvider::UID},
@@ -174,8 +175,8 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
       {"UNSUBSCRIBE", AUTH}, {"LIST", AUTH},          {"LSUB", AUTH},
       {"STATUS", AUTH},      {"APPEND", AUTH},        {"CHECK", SELECTED},
       {"CLOSE", SELECTED},   {"UNSELECT", SELECTED},  {"EXPUNGE", SELECTED},
-      {"SEARCH", SELECTED},  {"STORE", SELECTED},     {"COPY", SELECTED},
-      {"UID", SELECTED}};
+      {"SEARCH", SELECTED},  {"FETCH", SELECTED},  {"STORE", SELECTED},
+      {"COPY", SELECTED},    {"UID", SELECTED}};
   auto found = routeMap.find(command);
   if (found != routeMap.end()) {
     if (!found->second.valueless_by_exception()) {
@@ -446,7 +447,8 @@ std::string join(const std::vector<std::string>& itms,
   for (int i = 0; i < itms.size() - 1; i++) {
     buffer += itms[i] + delimiter;
   }
-  if (itms.size() - 1 >= 0) {
+  int sz = itms.size() - 1;
+  if (sz >= 0) {
     buffer += itms[(itms.size() - 1)];
   }
   return buffer;
@@ -618,6 +620,10 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::EXPUNGE(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::SEARCH(
+    int rfd, const std::string& tag) const {}
+
+template <class AuthP, class DataP>
+void IMAPProvider::IMAPProvider<AuthP, DataP>::FETCH(
     int rfd, const std::string& tag) const {}
 
 template <class AuthP, class DataP>

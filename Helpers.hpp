@@ -71,7 +71,7 @@ inline int sendMsg(struct tls *fd, int fdn, const std::string &data) {
     }else if(i == TLS_WANT_POLLIN){
       pfd[0].events = POLLIN;
     }else return (i < 0 ? errno : 0);
-    int nready = poll(pfd, 1, 0); 
+    poll(pfd, 1, 0); 
     i = tls_write(fd, &data[0], data.length());
   }
   BOOST_LOG_TRIVIAL(trace) <<"SEND call to socket " << fd << " Returned:" << i << " " << (errno != 0 ? strerror(errno) : "");
@@ -170,7 +170,7 @@ const std::string deflate(const std::string& data, const int level){
   if(ret.length() != strm.total_out){
     BOOST_LOG_TRIVIAL(error) << "Output size mismatch - Expected: " << strm.total_out << " Got: " << ret.length(); 
   }
-  // BOOST_LOG_TRIVIAL(trace) << "DEFLATE: " << ((ret.length() * 100) / data.length()) << "%" << ret;
+  BOOST_LOG_TRIVIAL(trace) << "DEFLATE: " << ((ret.length() * 100) / data.length()) << "%" << ret;
   return ret;
 }
 
@@ -187,15 +187,16 @@ const std::string inflate(const std::string& data){
   if(inflateInit(&strm) != Z_OK){
     throw std::runtime_error("Unable to inflate command data: Init failed.\n");
   }
-  while(1){
-    if(!strm.avail_in){
+  while(remaining > 0){
+    std::cout << strm.avail_in + remaining << std::endl;
+    if(strm.avail_in <= 0){
       uint bytesToRead = min(Z_BUF_SIZE, remaining);
       inbuf = data.substr(data.length() - remaining, bytesToRead);
       strm.next_in = reinterpret_cast<unsigned char*>(&inbuf[0]);
       strm.avail_in = bytesToRead;
       remaining -= bytesToRead;
     }
-    int status = inflate(&strm, Z_SYNC_FLUSH);
+    int status = ::inflate(&strm, Z_SYNC_FLUSH);
     if ((status == Z_STREAM_END) || (!strm.avail_out)){
         // Output buffer is full, or decompression is done
       uint n = Z_BUF_SIZE - strm.avail_out;
@@ -204,18 +205,24 @@ const std::string inflate(const std::string& data){
       strm.next_out = reinterpret_cast<unsigned char*>(&outbuf[0]);
       strm.avail_out = Z_BUF_SIZE;
     }
-    if(status == Z_STREAM_END)
+    if(status == Z_STREAM_END){
       break;
-    else if(status != Z_OK)
-      throw std::runtime_error("Unable to inflate");
+    }
+    else if(status != Z_OK){
+      return "";
+    }
+   
   }
+  BOOST_LOG_TRIVIAL(trace) << buf.str();
   if(inflateEnd(&strm) != Z_OK){
     BOOST_LOG_TRIVIAL(warning) << "zlib unable to cleanup inflate stream";
   }
-  std::string ret = buf.str();
+  BOOST_LOG_TRIVIAL(trace) << buf.str();
+  std::string ret(buf.str());
   if(ret.length() != strm.total_out){
     BOOST_LOG_TRIVIAL(error) << "Output size mismatch - Expected: " << strm.total_out << " Got: " << ret.length(); 
   }
+  BOOST_LOG_TRIVIAL(trace) << buf.str();
   return ret;
 }
 

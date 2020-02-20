@@ -73,12 +73,13 @@ class IMAPProvider : public Pollster::Handler {
   void UNSELECT(int rfd, const std::string& tag) const;
   void EXPUNGE(int rfd, const std::string& tag) const;
   void SEARCH(int rfd, const std::string& tag) const;
+  void FETCH(int rfd, const std::string& tag) const;
   void STORE(int rfd, const std::string& tag) const;
   void COPY(int rfd, const std::string& tag) const;
   void UID(int rfd, const std::string& tag) const;
   void COMPRESS(int rfd, const std::string& tag, const std::string& type) const;
 
-  static void newDataAvailable(int rfd, bool& compressed, const std::vector<std::string>& data) {
+  static void newDataAvailable(int rfd, const bool compressed, const std::vector<std::string>& data) {
     for (const std::string& d : data) respond(rfd, "*", "", d, compressed);
   }
 
@@ -101,8 +102,14 @@ class IMAPProvider : public Pollster::Handler {
     data.resize(rcvd);
     BOOST_LOG_TRIVIAL(trace) << "RECEIVED:" << data;
     if(states[fd].isCompressed()){
+      std::string data2 = inflate(data).c_str();
+      if(data2 != ""){
+        data = data2;
+      }
       BOOST_LOG_TRIVIAL(trace) << "INFLATED:" << data;
-      return {rcvd, inflate(data).c_str()};
+      return {rcvd, data.c_str()};
+      
+
     }else{
       return {rcvd, data.c_str()};
     }
@@ -181,5 +188,5 @@ class IMAPProvider : public Pollster::Handler {
   void connect(int fd) const;
 };
 }  // namespace IMAPProvider
-#include "IMAPProvider.impl"
+#include "IMAPProvider.cpp"
 #endif
