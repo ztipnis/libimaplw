@@ -69,6 +69,8 @@ class DataModel {
     return false;
   }  // note, function passed by value in order to preserve temporary std::bind
      // value
+  virtual bool search(const std::string& user, const std::string& mailbox, const std::vector<std::string>& queries, std::vector<int>& messages) = 0;
+  virtual bool fetch(const std::string& user, const std::string& mailbox, const int fields, const std::vector<std::string>& bodyParts) = 0;
  private:
   DataModel(DataModel const&) = delete;
   DataModel& operator=(DataModel const&) = delete;

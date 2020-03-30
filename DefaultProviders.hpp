@@ -90,4 +90,10 @@ class DAuthP : public IMAPProvider::DataModel {
   bool expunge(const std::string& user, const std::string& mailbox, std::vector<std::string>& expunged) {
     return true;
   }
+  bool search(const std::string& user, const std::string& mailbox, const std::vector<std::string>& queries, std::vector<int>& messages){
+    return true;
+  }
+  bool fetch(const std::string& user, const std::string& mailbox, const int fields, const std::vector<std::string>& bodyParts){
+    return true;
+  }
 };

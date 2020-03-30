@@ -93,14 +93,35 @@ struct selectResp {
   std::string accessType;
 };
 
-struct searchCriterion{
-  std::vector<std::string> flags;
-  std::vector<std::string> notFlags;
-  std::map<std::string, std::string> fieldContains;
-  std::map<std::string, std::string> fieldNotContains;
-  
+std::string join(const std::vector<std::string>& itms,
+                 const std::string& delimiter) {
+  std::string buffer;
+  for (int i = 0; i < itms.size() - 1; i++) {
+    buffer += itms[i] + delimiter;
+  }
+  int sz = itms.size() - 1;
+  if (sz >= 0) {
+    buffer += itms[(itms.size() - 1)];
+  }
+  return buffer;
+}
 
-};
+bool isNumeric(const std::string& s){
+  if(s.length() < 1)
+    return false;
+  else
+    return std::all_of(s.begin(), s.end(), [](const unsigned char c){
+      return std::isdigit(c);
+    });
+}
+bool isRange(const std::string& s){
+  if(s.length() < 1)
+    return false;
+  else
+    return std::all_of(s.begin(), s.end(), [](const unsigned char c){
+      return (std::isdigit(c) || c == '-');
+    });
+}
 
 std::string base64_decode(const std::string &in) {
   std::string out;

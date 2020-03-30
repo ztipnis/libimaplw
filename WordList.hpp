@@ -14,6 +14,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <iomanip>
 
 #ifndef __H_WORDLIST__
 #define __H_WORDLIST__
@@ -23,12 +24,26 @@ class WordList {
   std::vector<std::string> words;
 
  public:
+  using iterator = std::vector<std::string>::iterator;
+
   explicit WordList(std::string s) {
     std::stringstream ss(s);
     std::string sn;
-    while (ss >> sn) words.push_back(sn);
+    while (ss >> std::quoted(sn)) words.push_back(sn);
   }
+
+  iterator begin(){ return words.begin(); }
+  iterator end(){ return words.end(); }
+
   size_t size() const { return words.size(); }
+  size_t length() const { return size(); }
+  std::string pop(int idx){
+    assert(idx < words.size());
+    auto iter = words.begin() + idx;
+    std::string ret = *iter;
+    words.erase(iter);
+    return ret;
+  }
   std::string operator[](int n) const {
     if (n >= words.size()) return "";
     return words[n];
@@ -48,7 +63,5 @@ class WordList {
   std::string rest(unsigned int from) const {
     return getWords(from, words.size() - from);
   }
-  std::vector<std::string>::iterator begin() { return words.begin(); }
-  std::vector<std::string>::iterator end() { return words.end(); }
 };
 #endif

@@ -13,11 +13,12 @@
 #include <functional>
 #include <unordered_map>
 #include <variant>
+#include <regex>
 #include <unistd.h>
 
 template <class AuthP, class DataP>
 std::map<int, typename IMAPProvider::ClientStateModel<AuthP> >
-    IMAPProvider::IMAPProvider<AuthP, DataP>::states;
+IMAPProvider::IMAPProvider<AuthP, DataP>::states;
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::operator()(int fd) const {
   auto rec = receive(fd);
@@ -33,7 +34,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::operator()(int fd) const {
 }
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::disconnect(
-    int fd, const std::string& reason) const {
+  int fd, const std::string& reason) const {
   BOOST_LOG_TRIVIAL(debug) << " [UUID: " << states[fd].get_uuid() << "] Disconnected" << (reason == "" ? "" : ": " + reason);
   if (reason != "") {
     BYE(fd, "*", reason);
@@ -54,7 +55,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::connect(int fd) const {
     } else {
       int hndshk = tls_handshake(states[fd].tls);
       struct timespec tim, tim2;
-      while(hndshk == TLS_WANT_POLLIN || hndshk == TLS_WANT_POLLOUT){
+      while(hndshk == TLS_WANT_POLLIN || hndshk == TLS_WANT_POLLOUT) {
         tim.tv_nsec = 10000000L;
         nanosleep(&tim, &tim2);
         hndshk = tls_handshake(states[fd].tls);
@@ -119,20 +120,14 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::tls_cleanup() {
   }
 }
 
-template <typename T, class AuthP, class DataP>
-auto bind(T func, IMAPProvider::IMAPProvider<AuthP, DataP>* th) {
-  std::function<T> ret = std::bind(func, th);
-  return ret;
-}
-
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
-    int fd, const std::string& tag, const std::string& cmd,
-    const WordList& args) const {
+  int fd, const std::string& tag, const std::string& cmd,
+  const WordList& args) const {
   std::string command(cmd);
   std::transform(
-      command.begin(), command.end(), command.begin(),
-      ::toupper);  // https://stackoverflow.com/questions/735204/convert-a-string-in-c-to-upper-case
+    command.begin(), command.end(), command.begin(),
+    ::toupper); // https://stackoverflow.com/questions/735204/convert-a-string-in-c-to-upper-case
   BOOST_LOG_TRIVIAL(trace) << states[fd].get_uuid() << " : " << command;
   typedef decltype(&IMAPProvider::CAPABILITY) one;
   typedef decltype(&IMAPProvider::AUTHENTICATE) two;
@@ -141,44 +136,44 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
   typedef std::variant<one, two, three, four> variedFunc;
 
   static std::unordered_map<std::string, variedFunc> routeMap = {
-      {"CAPABILITY", &IMAPProvider::CAPABILITY},
-      {"NOOP", &IMAPProvider::NOOP},
-      {"LOGOUT", &IMAPProvider::LOGOUT},
-      {"STARTTLS", &IMAPProvider::STARTTLS},
-      {"AUTHENTICATE", &IMAPProvider::AUTHENTICATE},
-      {"LOGIN", &IMAPProvider::LOGIN},
-      {"SELECT", &IMAPProvider::SELECT},
-      {"EXAMINE", &IMAPProvider::EXAMINE},
-      {"CREATE", &IMAPProvider::CREATE},
-      {"DELETE", &IMAPProvider::DELETE},
-      {"RENAME", &IMAPProvider::RENAME},
-      {"SUBSCRIBE", &IMAPProvider::SUBSCRIBE},
-      {"UNSUBSCRIBE", &IMAPProvider::UNSUBSCRIBE},
-      {"LIST", &IMAPProvider::LIST},
-      {"LSUB", &IMAPProvider::LSUB},
-      {"STATUS", &IMAPProvider::STATUS},
-      {"APPEND", &IMAPProvider::APPEND},
-      {"CHECK", &IMAPProvider::CHECK},
-      {"CLOSE", &IMAPProvider::CLOSE},
-      {"UNSELECT", &IMAPProvider::UNSELECT},
-      {"EXPUNGE", &IMAPProvider::EXPUNGE},
-      {"SEARCH", &IMAPProvider::SEARCH},
-      {"SEARCH", &IMAPProvider::FETCH},
-      {"STORE", &IMAPProvider::STORE},
-      {"COPY", &IMAPProvider::COPY},
-      {"UID", &IMAPProvider::UID},
-      {"COMPRESS", &IMAPProvider::COMPRESS}
-    };
+    {"CAPABILITY", &IMAPProvider::CAPABILITY},
+    {"NOOP", &IMAPProvider::NOOP},
+    {"LOGOUT", &IMAPProvider::LOGOUT},
+    {"STARTTLS", &IMAPProvider::STARTTLS},
+    {"AUTHENTICATE", &IMAPProvider::AUTHENTICATE},
+    {"LOGIN", &IMAPProvider::LOGIN},
+    {"SELECT", &IMAPProvider::SELECT},
+    {"EXAMINE", &IMAPProvider::EXAMINE},
+    {"CREATE", &IMAPProvider::CREATE},
+    {"DELETE", &IMAPProvider::DELETE},
+    {"RENAME", &IMAPProvider::RENAME},
+    {"SUBSCRIBE", &IMAPProvider::SUBSCRIBE},
+    {"UNSUBSCRIBE", &IMAPProvider::UNSUBSCRIBE},
+    {"LIST", &IMAPProvider::LIST},
+    {"LSUB", &IMAPProvider::LSUB},
+    {"STATUS", &IMAPProvider::STATUS},
+    {"APPEND", &IMAPProvider::APPEND},
+    {"CHECK", &IMAPProvider::CHECK},
+    {"CLOSE", &IMAPProvider::CLOSE},
+    {"UNSELECT", &IMAPProvider::UNSELECT},
+    {"EXPUNGE", &IMAPProvider::EXPUNGE},
+    {"SEARCH", &IMAPProvider::SEARCH},
+    {"FETCH", &IMAPProvider::FETCH},
+    {"STORE", &IMAPProvider::STORE},
+    {"COPY", &IMAPProvider::COPY},
+    {"UID", &IMAPProvider::UID},
+    {"COMPRESS", &IMAPProvider::COMPRESS}
+  };
   static std::unordered_map<std::string, IMAPState_t> routeMinState = {
-      {"CAPABILITY", UNENC}, {"NOOP", UNENC},         {"LOGOUT", UNENC},
-      {"STARTTLS", UNENC},   {"AUTHENTICATE", UNENC}, {"LOGIN", UNENC},
-      {"SELECT", AUTH},      {"EXAMINE", AUTH},       {"CREATE", AUTH},
-      {"DELETE", AUTH},      {"RENAME", AUTH},        {"SUBSCRIBE", AUTH},
-      {"UNSUBSCRIBE", AUTH}, {"LIST", AUTH},          {"LSUB", AUTH},
-      {"STATUS", AUTH},      {"APPEND", AUTH},        {"CHECK", SELECTED},
-      {"CLOSE", SELECTED},   {"UNSELECT", SELECTED},  {"EXPUNGE", SELECTED},
-      {"SEARCH", SELECTED},  {"FETCH", SELECTED},  {"STORE", SELECTED},
-      {"COPY", SELECTED},    {"UID", SELECTED}};
+    {"CAPABILITY", UNENC}, {"NOOP", UNENC},         {"LOGOUT", UNENC},
+    {"STARTTLS", UNENC},   {"AUTHENTICATE", UNENC}, {"LOGIN", UNENC},
+    {"SELECT", AUTH},      {"EXAMINE", AUTH},       {"CREATE", AUTH},
+    {"DELETE", AUTH},      {"RENAME", AUTH},        {"SUBSCRIBE", AUTH},
+    {"UNSUBSCRIBE", AUTH}, {"LIST", AUTH},          {"LSUB", AUTH},
+    {"STATUS", AUTH},      {"APPEND", AUTH},        {"CHECK", SELECTED},
+    {"CLOSE", SELECTED},   {"UNSELECT", SELECTED},  {"EXPUNGE", SELECTED},
+    {"SEARCH", SELECTED},  {"FETCH", SELECTED},  {"STORE", SELECTED},
+    {"COPY", SELECTED},    {"UID", SELECTED}};
   auto found = routeMap.find(command);
   if (found != routeMap.end()) {
     if (!found->second.valueless_by_exception()) {
@@ -213,19 +208,19 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
         }
       } else {
         throw std::runtime_error(
-            "Mapping command to function failed. This should never happen...");
+                "Mapping command to function failed. This should never happen...");
       }
     }
   } else {
     BOOST_LOG_TRIVIAL(debug)
-        << "Command " << cmd << " Not Found [UUID: " << states[fd].get_uuid()
-        << "]";
+            << "Command " << cmd << " Not Found [UUID: " << states[fd].get_uuid()
+            << "]";
     BAD(fd, tag, "Command " + cmd + " Not Found.");
   }
 }
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::parse(
-    int fd, const std::string& message) const {
+  int fd, const std::string& message) const {
   WordList args(message);
   if (args.size() >= 2) {
     route(fd, args[0], args[1], WordList(args.rest(2)));
@@ -237,7 +232,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::parse(
 // IMAP COMMANDS:
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::CAPABILITY(
-    int rfd, const std::string& tag) const {
+  int rfd, const std::string& tag) const {
   if (config.starttls && !config.secure && (states[rfd].state() == UNENC)) {
     respond(rfd, "*", "CAPABILITY",
             "IMAP4rev1 UTF8=ONLY STARTTLS LOGINDISABLED", states[rfd].isCompressed());
@@ -246,7 +241,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::CAPABILITY(
             "IMAP4rev1 UTF8=ONLY " + AP.capabilityString,states[rfd].isCompressed());
   } else {
     respond(rfd, "*", "CAPABILITY",
-            "IMAP4rev1 UTF8=ONLY COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE",states[rfd].isCompressed());
+            "IMAP4rev1 UTF8=ONLY UNSELECT MOVE SPECIAL-USE",states[rfd].isCompressed());
   }
   OK(rfd, tag, "CAPABILITY Success.");
 }
@@ -254,7 +249,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::CAPABILITY(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::LOGOUT(
-    int rfd, const std::string& tag) const {
+  int rfd, const std::string& tag) const {
   BYE(rfd, "*", "LOGOUT initated by client");
   OK(rfd, tag, "LOGOUT Success.");
   disconnect(rfd, "");
@@ -262,14 +257,14 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LOGOUT(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::STARTTLS(
-    int rfd, const std::string& tag) const {
+  int rfd, const std::string& tag) const {
   if (config.starttls && !config.secure && (states[rfd].state() == UNENC)) {
     OK(rfd, tag, "Begin TLS Negotiation Now");
     if (tls_accept_socket(tls, &states[rfd].tls, rfd) < 0) {
       BAD(rfd, "*", "tls_accept_socket error");
     } else {
       int hndshk = tls_handshake(states[rfd].tls);
-      while(hndshk == TLS_WANT_POLLIN || hndshk == TLS_WANT_POLLOUT){
+      while(hndshk == TLS_WANT_POLLIN || hndshk == TLS_WANT_POLLOUT) {
         usleep(10000);
         hndshk = tls_handshake(states[rfd].tls);
       }
@@ -286,7 +281,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STARTTLS(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE(
-    int rfd, const std::string& tag, const std::string& mech) const {
+  int rfd, const std::string& tag, const std::string& mech) const {
   std::string mechanism(mech);
   if (states[rfd].state() != UNAUTH || states[rfd].state() == UNENC) {
     BAD(rfd, tag, "Already in Authenticated State");
@@ -315,7 +310,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE(
           OK(rfd, tag, "AUTHENTICATE Success. Welcome " + username);
         } else {
           BOOST_LOG_TRIVIAL(warning)
-              << "FAILED LOGIN ATTEMPT BY " << states[rfd].get_uuid();
+                  << "FAILED LOGIN ATTEMPT BY " << states[rfd].get_uuid();
           NO(rfd, tag, "[AUTHENTICATIONFAILED] Invalid Credentials");
         }
       }
@@ -330,33 +325,33 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::AUTHENTICATE(
       }
     } catch (const std::exception& excp) {
       BOOST_LOG_TRIVIAL(warning)
-          << "FAILED LOGIN ATTEMPT BY " << states[rfd].get_uuid();
+              << "FAILED LOGIN ATTEMPT BY " << states[rfd].get_uuid();
       NO(rfd, tag, excp.what());
     }
 }
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::LOGIN(
-    int rfd, const std::string& tag, const std::string& username,
-    const std::string& password) const {
+  int rfd, const std::string& tag, const std::string& username,
+  const std::string& password) const {
   if (states[rfd].authenticate(username, password)) {
     respond(rfd, "*", "CAPABILITY",
             "IMAP4rev1 COMPRESS=DEFLATE UNSELECT MOVE SPECIAL-USE", states[rfd].isCompressed());
     OK(rfd, tag, "LOGIN Success.");
   } else {
     BOOST_LOG_TRIVIAL(warning)
-        << "FAILED LOGIN ATTEMPT BY " << states[rfd].get_uuid();
+            << "FAILED LOGIN ATTEMPT BY " << states[rfd].get_uuid();
     NO(rfd, tag, "[AUTHENTICATIONFAILED] Invalid Credentials");
   }
 }
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::SELECT(
-    int rfd, const std::string& tag, const std::string& mailbox) const {
+  int rfd, const std::string& tag, const std::string& mailbox) const {
   states[rfd].select(mailbox);
   auto onData = std::bind(newDataAvailable, rfd, states[rfd].isCompressed(), std::placeholders::_1);
   states[rfd].isSubscribedToChanges =
-      DP.subscribe(states[rfd].getUser(), mailbox, onData);
+    DP.subscribe(states[rfd].getUser(), mailbox, onData);
   selectResp r = DP.select(states[rfd].getUser(), mailbox);
   respond(rfd, "*", "FLAGS", r.flags, states[rfd].isCompressed());
   respond(rfd, "*", std::to_string(r.exists), "EXISTS", states[rfd].isCompressed());
@@ -370,7 +365,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::SELECT(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::EXAMINE(
-    int rfd, const std::string& tag, const std::string& mailbox) const {
+  int rfd, const std::string& tag, const std::string& mailbox) const {
   states[rfd].select(mailbox);
   selectResp r = DP.select(states[rfd].getUser(), mailbox);
   respond(rfd, "*", "FLAGS", r.flags, states[rfd].isCompressed());
@@ -385,7 +380,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::EXAMINE(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::CREATE(
-    int rfd, const std::string& tag, const std::string& mailbox) const {
+  int rfd, const std::string& tag, const std::string& mailbox) const {
   if (DP.createMbox(states[rfd].getUser(), mailbox)) {
     OK(rfd, tag, "CREATE Success");
   } else {
@@ -395,7 +390,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::CREATE(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::DELETE(
-    int rfd, const std::string& tag, const std::string& mailbox) const {
+  int rfd, const std::string& tag, const std::string& mailbox) const {
   if (DP.hasSubFolders(states[rfd].getUser(), mailbox)) {
     if (DP.hasAttrib(states[rfd].getUser(), mailbox, "\\NoSelect")) {
       NO(rfd, tag, "MAILBOX in not deletable");
@@ -414,8 +409,8 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::DELETE(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::RENAME(
-    int rfd, const std::string& tag, const std::string& mailbox,
-    const std::string& name) const {
+  int rfd, const std::string& tag, const std::string& mailbox,
+  const std::string& name) const {
   if (DP.rename(states[rfd].getUser(), mailbox, name)) {
     OK(rfd, tag, "RENAME Success.");
   } else {
@@ -425,7 +420,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::RENAME(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::SUBSCRIBE(
-    int rfd, const std::string& tag, const std::string& mailbox) const {
+  int rfd, const std::string& tag, const std::string& mailbox) const {
   if (DP.addSub(states[rfd].getUser(), mailbox)) {
     OK(rfd, tag, " Success.");
   } else {
@@ -435,7 +430,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::SUBSCRIBE(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::UNSUBSCRIBE(
-    int rfd, const std::string& tag, const std::string& mailbox) const {
+  int rfd, const std::string& tag, const std::string& mailbox) const {
   if (DP.rmSub(states[rfd].getUser(), mailbox)) {
     OK(rfd, tag, " Success.");
   } else {
@@ -443,23 +438,11 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::UNSUBSCRIBE(
   }
 }
 
-std::string join(const std::vector<std::string>& itms,
-                 const std::string& delimiter) {
-  std::string buffer;
-  for (int i = 0; i < itms.size() - 1; i++) {
-    buffer += itms[i] + delimiter;
-  }
-  int sz = itms.size() - 1;
-  if (sz >= 0) {
-    buffer += itms[(itms.size() - 1)];
-  }
-  return buffer;
-}
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(
-    int rfd, const std::string& tag, const std::string& reference,
-    const std::string& name) const {
+  int rfd, const std::string& tag, const std::string& reference,
+  const std::string& name) const {
   std::string ref = reference;
   char* cref = &ref[0];
   std::string mboxs = name;
@@ -494,8 +477,8 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(
-    int rfd, const std::string& tag, const std::string& reference,
-    const std::string& name) const {
+  int rfd, const std::string& tag, const std::string& reference,
+  const std::string& name) const {
   // char* ref = new char[reference.length()];
   std::string ref = reference;
   char* cref = &ref[0];
@@ -530,8 +513,8 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::STATUS(
-    int rfd, const std::string& tag, const std::string& mailbox,
-    const std::string& datareq) const {
+  int rfd, const std::string& tag, const std::string& mailbox,
+  const std::string& datareq) const {
   if (DP.mailboxExists(states[rfd].getUser(), mailbox)) {
     const char* request = datareq.c_str();
     std::string paramstr(8192, 0);
@@ -567,8 +550,8 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STATUS(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND(
-    int rfd, const std::string& tag, const std::string& mailbox,
-    const std::string& flags, const std::string& msgsize) const {
+  int rfd, const std::string& tag, const std::string& mailbox,
+  const std::string& flags, const std::string& msgsize) const {
   if (!DP.mailboxExists(states[rfd].getUser(), mailbox)) {
     NO(rfd, tag, "[TRYCREATE] APPEND Failed.");
   } else {
@@ -590,13 +573,13 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::APPEND(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::CHECK(
-    int rfd, const std::string& tag) const {
+  int rfd, const std::string& tag) const {
   OK(rfd, tag, "CHECK Success.");
 }
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::CLOSE(
-    int rfd, const std::string& tag) const {
+  int rfd, const std::string& tag) const {
   std::vector<std::string> v;
   DP.expunge(states[rfd].getUser(), states[rfd].getMBox(), v);
   states[rfd].unselect();
@@ -604,14 +587,14 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::CLOSE(
 }
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::UNSELECT(
-    int rfd, const std::string& tag) const {
+  int rfd, const std::string& tag) const {
   states[rfd].unselect();
   OK(rfd, tag, "UNSELECT Success.");
 }
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::EXPUNGE(
-    int rfd, const std::string& tag) const {
+  int rfd, const std::string& tag) const {
   std::vector<std::string> expunged;
   DP.expunge(states[rfd].getUser(), states[rfd].getMBox(), expunged);
   for (std::string uid : expunged) {
@@ -620,32 +603,133 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::EXPUNGE(
   OK(rfd, tag, "EXPUNGE Success.");
 }
 
+
+std::string nextQuery(WordList& args_r){
+  if(args_r.length() > 0) {
+    std::string query = args_r.pop(0);
+    std::transform(query.begin(), query.end(), query.begin(), ::toupper);
+    /**
+     * <num... >
+     * ALL
+     * ANSWERED
+     * BCC <str>
+     * BEFORE <date>
+     * BODY <str>
+     * CC <str>
+     * DELETED
+     * DRAFT
+     * FLAGGED
+     * FROM <str>
+     * HEADER <field><str>
+     */
+    if(query == "ALL" || query == "ANSWERED" || query == "DELETED" || query == "DRAFT" || query == "FLAGGED") {
+      return query;
+    }else if(isNumeric(query)) {
+      std::string ret(query);
+      while(args_r.length() > 0 && isNumeric(args_r[0])) {
+        ret += " " + args_r.pop(0);
+      }
+      return ret;
+    }else if(query == "BCC" || query == "BEFORE" || query == "BODY" || query == "CC" || query == "FROM") {
+      return query + " " + nextQuery(args_r);
+    }else if(query == "HEADER") {
+      return query + " " + nextQuery(args_r) + " " + nextQuery(args_r);
+    }else return query;
+  }else return "\0";
+}
+
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::SEARCH(
-    int rfd, const std::string& tag) const {}
+  int rfd, const std::string& tag, const std::string& query) const {
+  WordList qarg(query);
+  std::string _query;
+  std::vector<std::string> v;
+  while(_query != "\0" && qarg.length() > 0){
+    _query.clear();
+    _query = nextQuery(qarg);
+    BOOST_LOG_TRIVIAL(debug) << _query;
+    v.push_back(_query);
+  }
+  std::vector<int> ret;
+  if(DP.search(states[rfd].getUser(), states[rfd].getMBox(), v, ret)){
+    std::vector<std::string> ret_s;
+    std::transform(ret.begin(), ret.end(), std::back_inserter(ret_s), [](const int i){
+      return std::to_string(i);
+    });
+    std::string ranges = join(ret_s, " ");
+    respond(rfd, "*", "SEARCH", ranges, states[rfd].isCompressed());
+    OK(rfd,tag, "SEARCH Success.");
+  }else{
+    NO(rfd, tag, "SEARCH Failed. Query Invalid.");
+  }
+}
+
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::FETCH(
-    int rfd, const std::string& tag) const {}
+  int rfd, const std::string& tag, const std::string& args) const {
+  static const std::regex requestParseFormat("^(\\d):?(\\d?) \\(((?:(?:[^\\[]+)(?:\\[[^\\]]+\\])?(?:<\\d+>)?)+)\\)$");
+  std::smatch requestParseResults;
+  if(std::regex_match(args, requestParseResults, requestParseFormat) && requestParseResults.size() == 4){
+    //Query matched
+    //requestParseResults[0] is full string
+    int start = std::stoi(requestParseResults[1]),
+    end = requestParseResults[2] != "" ? std::stoi(requestParseResults[2]) : -1;
+    std::string query(requestParseResults[3]);
+    static const std::regex queryParseFormat("(?:(?:BODY(?:.PEEK)?\\[[\\(\\)\\w\\d. ]+\\])|[\\w\\d.]+)(?:<\\d+>)?");
+    std::sregex_iterator qBegin(query.cbegin(), query.cend(), queryParseFormat), qEnd;
+
+    static const int BODY =           1<<0;
+    static const int PEEK =           1<<1;
+    static const int BODYSTRUCTURE =  1<<2;
+    static const int ENVELOPE =       1<<3;
+    static const int FLAGS =          1<<4;
+    static const int INTERNALDATE =   1<<5;
+    static const int UID =            1<<6;
+    static const int RFC822 =         1<<7;
+    static const int RFC822_SIZE =    1<<8;
+    static const int RFC822_HEADER =  1<<9;
+    static const int RFC822_TEXT =    1<<10;
+
+
+    int fields = 0;
+    std::vector<std::string> bodyParts;
+
+    
+
+
+
+  }else{
+    BAD(rfd, tag, "FETCH Failed. Bad Format.");
+  }
+
+
+}
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::STORE(
-    int rfd, const std::string& tag) const {}
+  int rfd, const std::string& tag) const {
+
+}
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::COPY(
-    int rfd, const std::string& tag) const {}
+  int rfd, const std::string& tag) const {
+
+}
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::UID(
-    int rfd, const std::string& tag) const {}
+  int rfd, const std::string& tag) const {
+
+}
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::COMPRESS(
-    int rfd, const std::string& tag, const std::string& type) const {
-  if(states[rfd].isCompressed()){
+  int rfd, const std::string& tag, const std::string& type) const {
+  if(states[rfd].isCompressed()) {
     BAD(rfd, tag, "[COMPRESSIONACTIVE] Compression already enabled.");
   }else{
-      OK(rfd, tag, "COMPRESS Success. Compression now active.");
-      states[rfd].isCompressed() = true;
+    OK(rfd, tag, "COMPRESS Success. Compression now active.");
+    states[rfd].isCompressed() = true;
   }
 }
