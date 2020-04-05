@@ -6,12 +6,21 @@
 #include <algorithm>
 #include <iterator>
 #include <cctype>
+#include <regex>
 #include <initializer_list>
-// #include "Helpers.hpp"
+#include "Helpers.hpp"
 #include "infix_ostream_iterator.hpp"
 
 
+#ifndef __IMAP_MESSAGE__
+#define	__IMAP_MESSAGE__
 
+std::ostream& operator<<(std::ostream& os, const mimetic::Header& h){
+	for(mimetic::Field f: h){
+		os << f << std::endl;
+	}
+	return os;
+}
 
 namespace IMAPProvider {
 
@@ -39,7 +48,7 @@ public:
 	const std::string body(const std::string& section, int origin) const;
 	const std::string bodyStructure() const{return mimeEntityToString(__message__, true);}
 	const std::string envelope() const;
-	// const std::string flags() const {return "(" + join(__flags__, " ") + ")";}
+	const std::string flags() const {return "(" + join(__flags__, " ") + ")";}
 	const std::string internalDate() const {return __date__;}
 	const std::string size() const {return std::to_string(__message__.size());}
 	const std::string uid() const {return std::to_string(__uid__);}
@@ -113,7 +122,87 @@ const std::string Message::envelope() const{
 }
 
 
+const std::string Message::body(const std::string& section, int origin) const{
+	std::stringstream sec(section);
+	const mimetic::MimeEntity* msgitm = &__message__;
+	char c = sec.peek();
+	std::string itm;
+	bool nil = false;
+	while(c != EOF && std::isdigit(*reinterpret_cast<unsigned char*>(&c))){
+		std::getline(sec, itm, '.');
+		int ssec = std::stoi(itm);
+		auto itr = msgitm->body().parts().begin();
+		std::advance(itr, ssec-1);
+		if(itr == msgitm->body().parts().end()){
+			nil = true;
+			break;
+		}
+		msgitm = *itr;
+		c = sec.peek();
+	}
+	if(nil) return "NIL";
+	itm.clear();
+	std::getline(sec,itm);
+	std::stringstream ret;
+	static const std::regex r("^\\.?(HEADER(?:.FIELDS(?:.NOT)?)?|TEXT|MIME) ?(?:\\((.*)\\))?$",std::regex_constants::icase);
+	std::smatch requestParseResults;
+	if(std::regex_match(itm, requestParseResults, r)){
 
+
+		static const std::string __HEADER__CONST("HEADER");
+		static const std::string __HEADER__F_CONST("HEADER.FIELDS");
+		static const std::string __HEADER__FN_CONST("HEADER.FIELDS.NOT");
+		static const std::string __TEXT__CONST("TEXT");
+		static const std::string __MIME__CONST("MIME");
+		#define ciEqual(s1, s2) std::equal(s1.begin(), s1.end(), s2.begin(), [](const unsigned char c1, const unsigned char c2){ return c1 == c2 || std::toupper(c1) == std::toupper(c2); })
+
+		const std::string typefield = requestParseResults[1];
+		if(typefield.size() == __HEADER__CONST.size() && ciEqual(typefield, __HEADER__CONST)){
+			ret << msgitm->header();
+			return ret.str();
+		}else if(typefield.size() == __HEADER__F_CONST.size() && ciEqual(typefield, __HEADER__F_CONST)){
+			const mimetic::Header &h = msgitm->header();
+			std::stringstream ss(requestParseResults[2]);
+			std::istream_iterator<std::string> start(ss), end;
+			for(auto i = start; i != end; i++){
+				if(h.hasField(*i)){
+					ret << h.field(*i) << std::endl;
+				}
+			}
+			return ret.str();
+		}else if(typefield.size() == __HEADER__FN_CONST.size() && ciEqual(typefield, __HEADER__FN_CONST)){
+			const mimetic::Header &h = msgitm->header();
+			std::stringstream ss(requestParseResults[2]);
+			std::ostream_iterator<mimetic::Field> out_it(ret, "\n");
+
+
+			std::copy_if(h.begin(), h.end(), out_it, [&](const mimetic::Field& f){
+				ss.clear();
+				ss.seekg(0, ss.beg);
+				const std::istream_iterator<std::string> start_(ss), end_;
+				return std::none_of(start_, end_, [f](const std::string& s){ return (f.name().size() == s.size() && ciEqual(f.name(), s)); });
+			});
+
+
+			return ret.str();
+		}else if(typefield.size() == __TEXT__CONST.size() && ciEqual(typefield, __TEXT__CONST)){
+			ret << msgitm->body();
+			return ret.str();
+		}else if(typefield.size() == __MIME__CONST.size() && ciEqual(typefield, __MIME__CONST)){
+			ret << msgitm->header();
+			return ret.str();
+		}else{
+			return "NIL";
+		}
+		#undef ciEqual
+	}else{
+		ret << *msgitm;
+		return ret.str();
+	}
+	return "";
+
+
+ }
 
 
 
@@ -149,7 +238,6 @@ const std::string addrToString(const mimetic::Address& addr){
 		mimetic::Group gr = addr.group();
 		std::stringstream addr_;
 		addr_ << "(NIL NIL " << gr.name() <<" NIL)";
-		std::cout << gr.size() << std::endl;
 		std::string last;
 		for (mimetic::Mailbox mailbox: gr){
 			last = mailboxToString(mailbox);
@@ -322,9 +410,9 @@ const std::string mimeEntityToString(const mimetic::MimeEntity& me, bool extensi
 }
 #undef strUpper
 
-const std::string Message::body(const std::string& section, int origin) const{
-	std::stringstream
-}
+
+
 
 
 } // IMAPProvider
+#endif

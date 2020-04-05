@@ -15,6 +15,7 @@
 #include <variant>
 #include <regex>
 #include <unistd.h>
+#include "Message.hpp"
 
 template <class AuthP, class DataP>
 std::map<int, typename IMAPProvider::ClientStateModel<AuthP> >
@@ -668,7 +669,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::SEARCH(
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::FETCH(
   int rfd, const std::string& tag, const std::string& args) const {
-  static const std::regex requestParseFormat("^(\\d):?(\\d?) \\(((?:(?:[^\\[]+)(?:\\[[^\\]]+\\])?(?:<\\d+>)?)+)\\)$");
+  static const std::regex requestParseFormat("^(\\d):?(\\d?) \\(?((?:(?:[^\\[]+)(?:\\[[^\\]]+\\])?(?:<\\d+>)?)+)\\)?$");
   std::smatch requestParseResults;
   if(std::regex_match(args, requestParseResults, requestParseFormat) && requestParseResults.size() == 4){
     //Query matched
@@ -676,24 +677,11 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::FETCH(
     int start = std::stoi(requestParseResults[1]),
     end = requestParseResults[2] != "" ? std::stoi(requestParseResults[2]) : -1;
     std::string query(requestParseResults[3]);
-    static const std::regex queryParseFormat("(?:(?:BODY(?:.PEEK)?\\[[\\(\\)\\w\\d. ]+\\])|[\\w\\d.]+)(?:<\\d+>)?");
+    static const std::regex queryParseFormat("(?:(?:BODY(?:.PEEK)?\\[[\\(\\)\\w\\d. ]+\\])|[\\w\\d.]+)(?:<\\d+\\.?\\d*>)?");
     std::sregex_iterator qBegin(query.cbegin(), query.cend(), queryParseFormat), qEnd;
-
-    static const int BODY =           1<<0;
-    static const int PEEK =           1<<1;
-    static const int BODYSTRUCTURE =  1<<2;
-    static const int ENVELOPE =       1<<3;
-    static const int FLAGS =          1<<4;
-    static const int INTERNALDATE =   1<<5;
-    static const int UID =            1<<6;
-    static const int RFC822 =         1<<7;
-    static const int RFC822_SIZE =    1<<8;
-    static const int RFC822_HEADER =  1<<9;
-    static const int RFC822_TEXT =    1<<10;
-
-
-    int fields = 0;
-    std::vector<std::string> bodyParts;
+    for(auto iter = qBegin; iter != qEnd; iter++){
+      Message fetched = 
+    }
 
     
 
