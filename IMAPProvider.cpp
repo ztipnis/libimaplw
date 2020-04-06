@@ -57,8 +57,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::connect(int fd) const {
       int hndshk = tls_handshake(states[fd].tls);
       struct timespec tim, tim2;
       while(hndshk == TLS_WANT_POLLIN || hndshk == TLS_WANT_POLLOUT) {
-        tim.tv_nsec = 10000000L;
-        nanosleep(&tim, &tim2);
+        usleep(1000);
         hndshk = tls_handshake(states[fd].tls);
       }
       if (hndshk < 0) {
@@ -680,7 +679,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::FETCH(
     static const std::regex queryParseFormat("(?:(?:BODY(?:.PEEK)?\\[[\\(\\)\\w\\d. ]+\\])|[\\w\\d.]+)(?:<\\d+\\.?\\d*>)?");
     std::sregex_iterator qBegin(query.cbegin(), query.cend(), queryParseFormat), qEnd;
     for(auto iter = qBegin; iter != qEnd; iter++){
-      Message fetched = 
+      // Message fetched = 
     }
 
     

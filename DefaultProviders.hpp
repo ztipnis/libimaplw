@@ -93,7 +93,8 @@ class DAuthP : public IMAPProvider::DataModel {
   bool search(const std::string& user, const std::string& mailbox, const std::vector<std::string>& queries, std::vector<int>& messages){
     return true;
   }
-  bool fetch(const std::string& user, const std::string& mailbox, const int fields, const std::vector<std::string>& bodyParts){
-    return true;
+  IMAPProvider::Message fetch(const std::string& user, const std::string& mailbox, const int fields, const std::vector<std::string>& bodyParts){
+    std::stringstream ss;
+    return IMAPProvider::Message(ss, 0, "1/1/2020", {"\\Seen"});
   }
 };
