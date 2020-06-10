@@ -1,0 +1,15 @@
+--- mimetic/contentid.cxx	2020-04-01 12:14:51.000000000 -0400
++++ mimetic/contentid.cxx	2020-04-01 12:15:09.000000000 -0400
+@@ -15,11 +15,7 @@
+ 
+ ContentId::ContentId()
+ {
+-    std::string host = gethostname();
+-    if(!host.length())
+-        host = "unknown";
+-  m_cid = "c" + utils::int2str(time(0)) + "." + utils::int2str(getpid()) +
+-        "." + utils::int2str(++ms_sequence_number) + "@" + host;
++  m_cid = "";
+ }
+ 
+ ContentId::ContentId(const char* cstr)
