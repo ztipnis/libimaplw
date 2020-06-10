@@ -451,11 +451,11 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LIST(
   std::vector<std::string> mboxPath;
   if (mboxs[0] != '/') {
     while (const char* token = strtok_r(cref, "/.", &cref)) {
-      mboxPath.push_back(std::string(token));
+      mboxPath.push_back(std::move(std::string(token)));
     }
   }
   while (const char* token = strtok_r(cmboxs, "/.", &cmboxs)) {
-    mboxPath.push_back(std::string(token));
+    mboxPath.push_back(std::move(std::string(token)));
   }
   std::vector<mailbox> lres;
   auto joined = join(mboxPath, "/");
@@ -488,11 +488,11 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::LSUB(
   std::vector<std::string> mboxPath;
   if (mboxs[0] != '/') {
     while (const char* token = strtok_r(cref, "/.", &cref)) {
-      mboxPath.push_back(std::string(token));
+      mboxPath.push_back(std::move(std::string(token)));
     }
   }
   while (const char* token = strtok_r(cmboxs, "/.", &cmboxs)) {
-    mboxPath.push_back(std::string(token));
+    mboxPath.push_back(std::move(std::string(token)));
   }
   std::vector<mailbox> lres;
   DP.lsub(states[rfd].getUser(), join(mboxPath, "/"), lres);
@@ -696,7 +696,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::SEARCH(
         return;
       }
     }
-    queryTerms.push_back(*nextToken);
+    queryTerms.push_back(std::move(*nextToken));
   }
   BOOST_LOG_TRIVIAL(trace) << join(queryTerms, ", ");
   std::vector<int> ret;
@@ -820,6 +820,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::FETCH(
       respond(rfd, "*", std::to_string(i) + " FETCH", resp, states[rfd].isCompressed());
       ss.str(std::string());
     }
+    OK(rfd, tag, "FETCH Success.");
   }else{
     BAD(rfd, tag, "Bad FETCH format");
   }
@@ -833,20 +834,30 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STORE(
   std::smatch m;
   if(std::regex_match(args, m, storeParse)){
     std::string range(m.str(1)), modifier(m.str(2)), silent(m.str(3)), flags(m.str(4));
-    if(modifier == "-"){
-      if(removeFlags(const std::string& user, const std::string& mailbox, int msgID, const std::vector<std::string>& flagList)){
+    const size_t rdelim = range.find_first_of(":");
+    int rst(stoi(range)), ren(stoi(rdelim == std::string::npos ? range : range.substr(rdelim)));
+    std::istringstream vfparser(flags);
+    std::vector<std::string> vflags{std::istream_iterator<std::string>(vfparser), std::istream_iterator<std::string>()};
+    auto storeAction = [this, dpr{std::cref(DP)}, modifier, tstate{std::cref(states[rfd])}, vflags{std::move(vflags)}](int i) -> bool{
+      auto fn =
+              modifier == "-" ? &DataModel::removeFlags :
+              modifier == "+" ? &DataModel::addFlags :
+              &DataModel::setFlags;
+      return (DP.*fn)(tstate.get().getUser(), tstate.get().getMBox(), i, vflags);
+    };
+    bool didcompleteallsucess = true;
+    for(int i = rst; i <= ren; i++)
+    if(storeAction(i)){
 
-      }
-    }else if(modifier == "+"){
-      if(addFlags(const std::string& user, const std::string& mailbox, int msgID, const std::vector<std::string>& flagList)){ 
-
-      }
     }else{
-      if(setFlags(const std::string& user, const std::string& mailbox, int msgID, const std::vector<std::string>& flagList)){
-
-      }
+      didcompleteallsucess = false;
     }
     
+    if(didcompleteallsucess){
+      OK(rfd, tag, "STORE Success.");
+    }else{
+      NO(rfd, tag, "Unable to complete all STORE transactions");
+    }
   }else{
     BAD(rfd,tag,"Bad STORE format");
   }
@@ -854,8 +865,14 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::STORE(
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::COPY(
-  int rfd, const std::string& tag) const {
+  int rfd, const std::string& tag, const std::string& sequence, const std::string& mailbox) const {
+  if (!DP.mailboxExists(states[rfd].getUser(), mailbox)){
+    NO(rfd, tag, "[TRYCREATE] COPY Failed.");
+  }else{
+    const size_t rdelim = sequence.find_first_of(":");
+    int rst(stoi(sequence)), ren(stoi(rdelim == std::string::npos ? sequence : sequence.substr(rdelim)));
 
+  }
 }
 
 template <class AuthP, class DataP>
