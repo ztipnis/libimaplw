@@ -6,7 +6,7 @@ ExternalProject_Add(Project_Mimetic
     GIT_PROGRESS 1
     UPDATE_COMMAND "" #${GIT_EXECUTABLE} stash && ${GIT_EXECUTABLE} pull && ${GIT_EXECUTABLE} stash apply || true
     SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/mimetic
-    PATCH_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/mimetic-patches/patch.sh ${CMAKE_CURRENT_SOURCE_DIR}
+    PATCH_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/CMake/mimetic-patches/patch.sh ${CMAKE_CURRENT_SOURCE_DIR}
     CONFIGURE_COMMAND ${CMAKE_CURRENT_BINARY_DIR}/mimetic/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/libmimetic --enable-fast-install=no --enable-static=yes --enable-shared=no
     BUILD_COMMAND ${MAKE}
     BUILD_ALWAYS 0
