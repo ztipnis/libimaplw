@@ -93,9 +93,17 @@ struct selectResp {
   std::string accessType;
 };
 
-std::string join(const std::vector<std::string>& itms,
+template <class T>
+std::string join(const T& itms,
                  const std::string& delimiter) {
   std::string buffer;
+  if(itms.size() <= 1){
+    if(itms.size() == 1){
+      return itms[0];
+    }else{
+      return "";
+    }
+  }
   for (int i = 0; i < itms.size() - 1; i++) {
     buffer += itms[i] + delimiter;
   }
@@ -246,5 +254,6 @@ const std::string inflate(const std::string& data){
   BOOST_LOG_TRIVIAL(trace) << buf.str();
   return ret;
 }
+
 
 #endif

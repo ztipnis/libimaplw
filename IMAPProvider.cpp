@@ -15,6 +15,7 @@
 #include <variant>
 #include <regex>
 #include <unistd.h>
+#include <array>
 #include "Message.hpp"
 
 template <class AuthP, class DataP>
@@ -128,14 +129,14 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
   std::transform(
     command.begin(), command.end(), command.begin(),
     ::toupper); // https://stackoverflow.com/questions/735204/convert-a-string-in-c-to-upper-case
-  BOOST_LOG_TRIVIAL(trace) << states[fd].get_uuid() << " : " << command;
+  // BOOST_LOG_TRIVIAL(trace) << states[fd].get_uuid() << " : " << command;
   typedef decltype(&IMAPProvider::CAPABILITY) one;
   typedef decltype(&IMAPProvider::AUTHENTICATE) two;
   typedef decltype(&IMAPProvider::LOGIN) three;
   typedef decltype(&IMAPProvider::APPEND) four;
   typedef std::variant<one, two, three, four> variedFunc;
 
-  static std::unordered_map<std::string, variedFunc> routeMap = {
+  std::unordered_map<std::string, variedFunc> routeMap = {
     {"CAPABILITY", &IMAPProvider::CAPABILITY},
     {"NOOP", &IMAPProvider::NOOP},
     {"LOGOUT", &IMAPProvider::LOGOUT},
@@ -164,7 +165,7 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::route(
     {"UID", &IMAPProvider::UID},
     {"COMPRESS", &IMAPProvider::COMPRESS}
   };
-  static std::unordered_map<std::string, IMAPState_t> routeMinState = {
+  std::unordered_map<std::string, IMAPState_t> routeMinState = {
     {"CAPABILITY", UNENC}, {"NOOP", UNENC},         {"LOGOUT", UNENC},
     {"STARTTLS", UNENC},   {"AUTHENTICATE", UNENC}, {"LOGIN", UNENC},
     {"SELECT", AUTH},      {"EXAMINE", AUTH},       {"CREATE", AUTH},
@@ -604,54 +605,102 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::EXPUNGE(
 }
 
 
-std::string nextQuery(WordList& args_r){
-  if(args_r.length() > 0) {
-    std::string query = args_r.pop(0);
-    std::transform(query.begin(), query.end(), query.begin(), ::toupper);
-    /**
-     * <num... >
-     * ALL
-     * ANSWERED
-     * BCC <str>
-     * BEFORE <date>
-     * BODY <str>
-     * CC <str>
-     * DELETED
-     * DRAFT
-     * FLAGGED
-     * FROM <str>
-     * HEADER <field><str>
-     */
-    if(query == "ALL" || query == "ANSWERED" || query == "DELETED" || query == "DRAFT" || query == "FLAGGED") {
-      return query;
-    }else if(isNumeric(query)) {
-      std::string ret(query);
-      while(args_r.length() > 0 && isNumeric(args_r[0])) {
-        ret += " " + args_r.pop(0);
-      }
-      return ret;
-    }else if(query == "BCC" || query == "BEFORE" || query == "BODY" || query == "CC" || query == "FROM") {
-      return query + " " + nextQuery(args_r);
-    }else if(query == "HEADER") {
-      return query + " " + nextQuery(args_r) + " " + nextQuery(args_r);
-    }else return query;
-  }else return "\0";
+std::string* search_query_r(std::string* query){
+  static const std::array<std::string,34> regex_query_items= {{
+    "ALL",
+    "ANSWERED",
+    "DELETED",
+    "FLAGGED",
+    "NEW",
+    "NOT",
+    "OR",
+    "OLD",
+    "RECENT",
+    "SEEN",
+    "UNANSWERED",
+    "UNDELETED",
+    "UNDRAFT",
+    "UNFLAGGED",
+    "UNSEEN",
+    "BCC .+?",
+    "CC .+?",
+    "FROM .+?",
+    "HEADER .+?",
+    "KEYWORD .+?",
+    "LARGER \\d+",
+    "ON .+?",
+    "SENTBEFORE .+?",
+    "SENTON .+?",
+    "SENTSINCE .+?",
+    "SINCE .+?",
+    "SMALLER \\d+",
+    "SUBJECT .+?",
+    "TEXT .+?",
+    "TO .+?",
+    "UID (?:\\d+-\\d+|(?:[\\d\\s]+)+)",
+    "UNKEYWORD .+?",
+    "\\d+[-:]\\d+",
+    "[\\d\\s]+"
+  }};
+  static const std::regex searchParse("^(" + join(regex_query_items, "|") + ")(?:\\s|^|$|\\r\\n|\\n)", std::regex::icase | std::regex::optimize);
+  thread_local std::string *cPtr;
+  if(query != NULL){
+    cPtr = query;
+  }else if(cPtr == NULL){
+    return NULL;
+  }else if(cPtr->length() == 0){
+    cPtr = NULL;
+    return NULL;
+  }
+  std::smatch m;
+  std::regex_search(*cPtr, m, searchParse);
+  if(m.size() == 2){
+    std::string* match = new std::string(m.str(1));
+    *cPtr = cPtr->substr(m.position()+m.length());
+    if(match->length() > 0 && *match != "\0")
+      return match;
+    else{
+      delete match;
+      return search_query_r(NULL);
+    }
+  }else{
+    return NULL;
+  }
 }
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::SEARCH(
   int rfd, const std::string& tag, const std::string& query) const {
-  WordList qarg(query);
-  std::string _query;
-  std::vector<std::string> v;
-  while(_query != "\0" && qarg.length() > 0){
-    _query.clear();
-    _query = nextQuery(qarg);
-    BOOST_LOG_TRIVIAL(debug) << _query;
-    v.push_back(_query);
+  std::string qTmp(query);
+  std::vector<std::string> queryTerms;
+  for(std::string* nextToken = search_query_r(&qTmp); nextToken != NULL; nextToken = search_query_r(NULL)){
+    if(*nextToken == "NOT"){
+      std::string *sq1 = search_query_r(NULL);
+      if(sq1 != NULL){
+        *nextToken = *nextToken + " " + *sq1;
+      }else{
+        delete sq1;
+        delete nextToken;
+        BAD(rfd, tag, "NOT requires additional token");
+        return;
+      }
+    }else if(*nextToken == "OR"){
+      std::string *sq1 = search_query_r(NULL), *sq2 = search_query_r(NULL);
+      if(sq1 != NULL && sq2 != NULL){
+        *nextToken = *nextToken + " " + *sq1 + " " + *sq2;
+      }else{
+        delete sq1;
+        delete sq2;
+        delete nextToken;
+        BAD(rfd, tag, "OR requires additional two tokens");
+        return;
+      }
+    }
+    queryTerms.push_back(*nextToken);
   }
+  BOOST_LOG_TRIVIAL(trace) << join(queryTerms, ", ");
   std::vector<int> ret;
-  if(DP.search(states[rfd].getUser(), states[rfd].getMBox(), v, ret)){
+  if(DP.search(states[rfd].getUser(), states[rfd].getMBox(), queryTerms, ret)){
     std::vector<std::string> ret_s;
     std::transform(ret.begin(), ret.end(), std::back_inserter(ret_s), [](const int i){
       return std::to_string(i);
@@ -668,35 +717,139 @@ void IMAPProvider::IMAPProvider<AuthP, DataP>::SEARCH(
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::FETCH(
   int rfd, const std::string& tag, const std::string& args) const {
-  static const std::regex requestParseFormat("^(\\d):?(\\d?) \\(?((?:(?:[^\\[]+)(?:\\[[^\\]]+\\])?(?:<\\d+>)?)+)\\)?$");
-  std::smatch requestParseResults;
-  if(std::regex_match(args, requestParseResults, requestParseFormat) && requestParseResults.size() == 4){
-    //Query matched
-    //requestParseResults[0] is full string
-    int start = std::stoi(requestParseResults[1]),
-    end = requestParseResults[2] != "" ? std::stoi(requestParseResults[2]) : -1;
-    std::string query(requestParseResults[3]);
-    static const std::regex queryParseFormat("(?:(?:BODY(?:.PEEK)?\\[[\\(\\)\\w\\d. ]+\\])|[\\w\\d.]+)(?:<\\d+\\.?\\d*>)?");
-    std::sregex_iterator qBegin(query.cbegin(), query.cend(), queryParseFormat), qEnd;
-    for(auto iter = qBegin; iter != qEnd; iter++){
-      // Message fetched = 
+  static const std::regex fetchSyntax("(.*?) \\(?(.*?)\\)?$", std::regex::optimize);
+  std::smatch m;
+  std::string fetchRequest(args);
+  if(std::regex_match(fetchRequest, m, fetchSyntax)){
+    std::string range(m.str(1));
+    int start,end;
+    std::size_t cloc = range.find(':');
+    if(cloc == std::string::npos || cloc == range.length() - 1){
+      start = stoi(range);
+      end   = stoi(range);
+    }else{
+      start = stoi(range.substr(0,cloc));
+      end   = stoi(range.substr(cloc+1));
     }
+    std::string qry(m.str(2) + " ");
+    std::for_each(qry.begin(), qry.end(), [](char c){return std::toupper(static_cast<unsigned char>(c));});
+    static const std::regex splitSyntax("(?:.+?(?:\\[.*?\\])?(?:<.*?>)?)( )", std::regex::optimize);
+    std::vector<std::string> fetchTokens;
+    std::copy( std::sregex_token_iterator(qry.begin(), qry.end(), splitSyntax,0),
+               std::sregex_token_iterator(),
+               std::back_inserter(fetchTokens)
+              );
+    for(int i=start; i <= end; i++){
+      Message msg = DP.fetch(states[rfd].getUser(), states[rfd].getMBox(), i);
+      std::stringstream ss;
+      for(auto iter = fetchTokens.begin(); iter != fetchTokens.end(); iter++){
+        std::string bodyToken(*iter);
+        bodyToken.erase(std::find_if(bodyToken.rbegin(), bodyToken.rend(), [](int ch) {
+            return !std::isspace(ch);
+        }).base(), bodyToken.end());
+        if(ss.str().length() > 0) ss << " ";
+        if(bodyToken == "ALL"){
+          ss << "FLAGS "         << msg.flags()
+             << " INTERNALDATE " << msg.internalDate()
+             << " RFC822.SIZE "  << msg.size()
+             << " ENVELOPE "     << msg.envelope();
+        }else if(bodyToken == "FAST"){
+          ss << "FLAGS "         << msg.flags()
+             << " INTERNALDATE " << msg.internalDate()
+             << " RFC822.SIZE "  << msg.size();
+        }else if(bodyToken == "FULL"){
+          ss << "FLAGS "         << msg.flags()
+             << " INTERNALDATE " << msg.internalDate()
+             << " RFC822.SIZE "  << msg.size()
+             << " ENVELOPE "     << msg.envelope()
+             << " BODY"          << msg.body();
+        }else if(bodyToken == "BODY"){
+          ss << "BODY " <<  msg.body();
+        }else if(bodyToken == "BODYSTRUCTURE"){
+          ss << "BODYSTRUCTURE " <<  msg.bodyStructure();
+        }else if(bodyToken == "ENVELOPE"){
+          ss << "ENVELOPE " <<  msg.envelope();
+        }else if(bodyToken == "FLAGS"){
+          ss << "FLAGS " <<  msg.flags();
+        }else if(bodyToken == "INTERNALDATE"){
+          ss << "INTERNALDATE " <<  msg.internalDate();
+        }else if(bodyToken == "RFC822"){
+          std::string msgbody = msg.body("", 0);
+          ss << "RFC822 {" << msgbody.size() << "}" << std::endl  << msgbody;
+        }else if(bodyToken == "RFC822.HEADER"){
+          std::string msghdr = msg.body("HEADER", 0);
+          ss << "RFC822.HEADER {" << msghdr.size() << "}" << std::endl << msghdr;
+        }else if(bodyToken == "RFC822.SIZE"){
+          ss << "RFC822.SIZE " << msg.body("", 0).size();
+        }else if(bodyToken == "RFC822.TEXT"){
+          std::string msgtxt = msg.body("TEXT", 0);
+          ss << "RFC822.TEXT {" << msgtxt.size() << "}" << std::endl << msgtxt;
+        }else if(bodyToken == "UID"){
+          ss << "UID " << msg.uid() << std::endl;
+        }else{
+          const std::regex bd_rx("BODY(.PEEK)?\\[(.+?)\\](?:\\<([^.]+)\\.(.+)\\>)?");
+          std::smatch bd_match;
+          if(std::regex_match(bodyToken, bd_match, bd_rx)){
 
-    
-
-
-
+            bool peek = (bd_match.str(1) == ".PEEK");
+            std::string parts = bd_match.str(2);
+            bool readrange = (bd_match.str(3) + bd_match.str(4)).length() >= 2;
+            int bstart = bd_match.str(3).length() ? stoi(bd_match.str(3)): 0;
+            int bend = bd_match.str(4).length() ? stoi(bd_match.str(4)): 0;
+            std::string msgbody = msg.body(parts, bstart);
+            if(bstart <= msgbody.length()){
+              bend = bend > msgbody.length() ? msgbody.length() : bend;
+              msgbody = msgbody.substr(bstart, bend-bstart);
+            }else{
+              msgbody = "NIL";
+            }
+            if(!peek){
+              std::vector<std::string> seen = {"\\Seen"};
+              DP.addFlags(states[rfd].getUser(), states[rfd].getMBox(), i, seen);
+            }
+            ss << "BODY[" << parts << "]";
+            if(readrange) ss << "<" << bstart << ">";
+            ss << " " << "{" << msgbody.length() << "}" << std::endl;
+            ss << msgbody;
+          }else{
+            ss << bodyToken << " NIL";
+          }
+        }
+      }
+      std::string resp = "(" + ss.str() + ")";
+      respond(rfd, "*", std::to_string(i) + " FETCH", resp, states[rfd].isCompressed());
+      ss.str(std::string());
+    }
   }else{
-    BAD(rfd, tag, "FETCH Failed. Bad Format.");
+    BAD(rfd, tag, "Bad FETCH format");
   }
-
-
+  
 }
 
 template <class AuthP, class DataP>
 void IMAPProvider::IMAPProvider<AuthP, DataP>::STORE(
-  int rfd, const std::string& tag) const {
+  int rfd, const std::string& tag, const std::string& args) const {
+  static const std::regex storeParse("([0-9:]+?) (\\+|-)?FLAGS(\\.SILENT)? \\(?(.+?)\\)?");
+  std::smatch m;
+  if(std::regex_match(args, m, storeParse)){
+    std::string range(m.str(1)), modifier(m.str(2)), silent(m.str(3)), flags(m.str(4));
+    if(modifier == "-"){
+      if(removeFlags(const std::string& user, const std::string& mailbox, int msgID, const std::vector<std::string>& flagList)){
 
+      }
+    }else if(modifier == "+"){
+      if(addFlags(const std::string& user, const std::string& mailbox, int msgID, const std::vector<std::string>& flagList)){ 
+
+      }
+    }else{
+      if(setFlags(const std::string& user, const std::string& mailbox, int msgID, const std::vector<std::string>& flagList)){
+
+      }
+    }
+    
+  }else{
+    BAD(rfd,tag,"Bad STORE format");
+  }
 }
 
 template <class AuthP, class DataP>

@@ -71,7 +71,10 @@ class DataModel {
   }  // note, function passed by value in order to preserve temporary std::bind
      // value
   virtual bool search(const std::string& user, const std::string& mailbox, const std::vector<std::string>& queries, std::vector<int>& messages) = 0;
-  virtual Message fetch(const std::string& user, const std::string& mailbox, const int fields, const std::vector<std::string>& bodyParts) = 0;
+  virtual Message fetch(const std::string& user, const std::string& mailbox, int id) = 0;
+  virtual bool setFlags(const std::string& user, const std::string& mailbox, int msgID, const std::vector<std::string>& flagList) = 0;
+  virtual bool addFlags(const std::string& user, const std::string& mailbox, int msgID, const std::vector<std::string>& flagList) = 0;
+  virtual bool removeFlags(const std::string& user, const std::string& mailbox, int msgID, const std::vector<std::string>& flagList) = 0;
  private:
   DataModel(DataModel const&) = delete;
   DataModel& operator=(DataModel const&) = delete;

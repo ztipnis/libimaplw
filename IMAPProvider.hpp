@@ -74,7 +74,7 @@ class IMAPProvider : public Pollster::Handler {
   void EXPUNGE(int rfd, const std::string& tag) const;
   void SEARCH(int rfd, const std::string& tag, const std::string& query) const;
   void FETCH(int rfd, const std::string& tag, const std::string& args) const;
-  void STORE(int rfd, const std::string& tag) const;
+  void STORE(int rfd, const std::string& tag, const std::string& args) const;
   void COPY(int rfd, const std::string& tag) const;
   void UID(int rfd, const std::string& tag) const;
   void COMPRESS(int rfd, const std::string& tag, const std::string& type) const;
